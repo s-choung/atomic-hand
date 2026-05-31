@@ -32,14 +32,14 @@ Both clips play on the [landing page](https://atomic-hand.schoung.com).
 
 | Gesture | Action |
 |---|---|
-| ✋ Open hand + move | Rotate |
-| ✋ Wrist twist | Rotate (azimuth) |
-| 👐 Two hands spread/pinch | Zoom in / out |
-| ✊ Fist | Pause |
-| ✊ Fist + swipe L/R | Switch structure |
-| 🖱 Mouse drag | Rotate |
-| ⚙ Mouse scroll | Zoom |
-| ⌨ ← → | Switch structure |
+| Open hand + move | Rotate |
+| Wrist twist | Rotate (azimuth) |
+| Two hands spread / pinch | Zoom in / out |
+| Fist | Pause |
+| Fist + swipe L/R | Switch structure |
+| Mouse drag | Rotate |
+| Mouse scroll | Zoom |
+| Arrow keys (left / right) | Switch structure |
 | `S` key | Toggle settings panel |
 
 ## Install
