@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+*:Amd:*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build artifacts / bundles
+GestureMol.app/
+*.icns
+
+# Local tooling / scratch
+.claude/
+.omc/
+logo_candidates/
+
+# Large screenshots (keep only the few referenced by README via `git add -f`)
+screenshots/

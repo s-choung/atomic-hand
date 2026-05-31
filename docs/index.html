@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atomic Hand — control molecules with your hands</title>
+<meta name="description" content="A hand-gesture molecular viewer for macOS. Rotate, zoom, and flip through 3D molecules with your bare hands using your webcam." />
+<meta property="og:title" content="Atomic Hand" />
+<meta property="og:description" content="Control 3D molecules with your bare hands. A webcam-based molecular viewer for macOS." />
+<meta property="og:image" content="media/atomichand_poster.jpg" />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #0d0d0d;
+    --muted: #6b7280;
+    --line: #ececec;
+    --card: #fafafa;
+    --accent: #0d0d0d;
+    --radius: 16px;
+    --maxw: 980px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  code, pre { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  /* nav */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: saturate(180%) blur(12px);
+    background: rgba(255,255,255,0.8);
+    border-bottom: 1px solid var(--line);
+  }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .brand { font-weight: 700; letter-spacing: -0.02em; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--fg); display: inline-block; }
+  .nav-links { display: flex; gap: 22px; align-items: center; font-size: 0.92rem; }
+  .nav-links a { color: var(--muted); text-decoration: none; transition: color .15s; }
+  .nav-links a:hover { color: var(--fg); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent); color: #fff !important;
+    padding: 10px 18px; border-radius: 999px;
+    font-weight: 500; font-size: 0.92rem; text-decoration: none;
+    border: 1px solid var(--accent); transition: opacity .15s, transform .15s;
+  }
+  .btn:hover { opacity: 0.85; }
+  .btn.secondary { background: #fff; color: var(--fg) !important; border: 1px solid var(--line); }
+  .btn.secondary:hover { background: var(--card); opacity: 1; }
+
+  /* hero */
+  header.hero { padding: 96px 0 56px; text-align: center; }
+  .pill {
+    display: inline-block; font-size: 0.8rem; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 5px 14px; margin-bottom: 28px;
+  }
+  h1 {
+    font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 700;
+    letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 22px;
+  }
+  .lede { font-size: clamp(1.05rem, 2.2vw, 1.35rem); color: var(--muted); max-width: 620px; margin: 0 auto 36px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  /* sections */
+  section { padding: 64px 0; border-top: 1px solid var(--line); }
+  .eyebrow { font-size: 0.82rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
+  h2 { font-size: clamp(1.6rem, 3.5vw, 2.3rem); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 16px; }
+  .section-sub { color: var(--muted); max-width: 640px; margin-bottom: 36px; }
+
+  /* video */
+  .videos { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .videos { grid-template-columns: 1fr; } }
+  .video-card { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #000; }
+  .video-card video { width: 100%; display: block; aspect-ratio: 16/10; object-fit: cover; background:#000; }
+  .video-card .cap { background: #fff; padding: 14px 18px; border-top: 1px solid var(--line); }
+  .video-card .cap b { display: block; font-size: 0.98rem; }
+  .video-card .cap span { font-size: 0.85rem; color: var(--muted); }
+
+  /* gestures grid */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .gcard { border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; background: var(--card); }
+  .gcard .ico { font-size: 1.6rem; margin-bottom: 10px; }
+  .gcard b { display: block; font-size: 1rem; margin-bottom: 4px; }
+  .gcard span { color: var(--muted); font-size: 0.9rem; }
+
+  /* install */
+  .codeblock { position: relative; background: #0d0d0d; color: #f5f5f5; border-radius: var(--radius); padding: 22px 22px; overflow-x: auto; }
+  .codeblock pre { white-space: pre; font-size: 0.86rem; line-height: 1.8; }
+  .codeblock .cmt { color: #7a8290; }
+  .copy-btn {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; transition: background .15s;
+  }
+  .copy-btn:hover { background: rgba(255,255,255,0.2); }
+  .install-note { margin-top: 16px; font-size: 0.9rem; color: var(--muted); }
+
+  /* note / callout */
+  .callout { border: 1px solid var(--line); border-left: 3px solid #f59e0b; background: #fffdf7; border-radius: 12px; padding: 20px 22px; }
+  .callout b { display:block; margin-bottom: 6px; }
+  .callout p { color: var(--muted); font-size: 0.94rem; }
+  .callout + .callout { margin-top: 16px; }
+
+  .road { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+  @media (max-width: 760px) { .road { grid-template-columns: 1fr; } }
+  .road .item { border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+  .road .item .n { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+  .road .item b { display:block; margin-bottom: 6px; }
+  .road .item span { color: var(--muted); font-size: 0.9rem; }
+
+  footer { border-top: 1px solid var(--line); padding: 48px 0; color: var(--muted); font-size: 0.9rem; }
+  footer .wrap { display:flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  footer a { text-decoration: none; color: var(--muted); }
+  footer a:hover { color: var(--fg); }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> Atomic Hand</div>
+    <div class="nav-links">
+      <a href="#demos">Demos</a>
+      <a href="#gestures">Gestures</a>
+      <a href="#install">Install</a>
+      <a class="btn" href="https://github.com/s-choung/atomic-hand">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="pill">Webcam · MediaPipe · OVITO · macOS</span>
+    <h1>Control molecules<br/>with your bare hands.</h1>
+    <p class="lede">Atomic Hand turns your laptop camera into a controller. Rotate, zoom, and flip through 3D molecular structures in real time — no mouse, no keyboard, just gestures.</p>
+    <div class="cta">
+      <a class="btn" href="#install">Install on macOS</a>
+      <a class="btn secondary" href="https://github.com/s-choung/atomic-hand">View source on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<section id="demos">
+  <div class="wrap">
+    <div class="eyebrow">See it</div>
+    <h2>Two clips worth a thousand words</h2>
+    <p class="section-sub">The real thing in action, and the sci-fi moment that inspired it.</p>
+    <div class="videos">
+      <div class="video-card">
+        <video controls preload="none" poster="media/atomichand_poster.jpg" playsinline>
+          <source src="media/AtomicHand_demo_compressed.mp4" type="video/mp4" />
+        </video>
+        <div class="cap"><b>Atomic Hand in action</b><span>Rotating and switching molecules by hand.</span></div>
+      </div>
+      <div class="video-card">
+        <video controls preload="none" poster="media/minority_poster.jpg" playsinline>
+          <source src="media/minority_report_hologram.mp4" type="video/mp4" />
+        </video>
+        <div class="cap"><b>The inspiration</b><span>Minority-Report-style hologram interaction.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="gestures">
+  <div class="wrap">
+    <div class="eyebrow">How it works</div>
+    <h2>A small vocabulary of gestures</h2>
+    <p class="section-sub">MediaPipe tracks 21 hand landmarks per frame; a lightweight engine maps them to camera moves.</p>
+    <div class="grid">
+      <div class="gcard"><div class="ico">✋</div><b>Open hand + move</b><span>Rotate the structure</span></div>
+      <div class="gcard"><div class="ico">🤚</div><b>Wrist twist</b><span>Spin around the vertical axis</span></div>
+      <div class="gcard"><div class="ico">👐</div><b>Two hands spread / pinch</b><span>Zoom in and out</span></div>
+      <div class="gcard"><div class="ico">✊</div><b>Fist</b><span>Pause tracking</span></div>
+      <div class="gcard"><div class="ico">👉</div><b>Fist + swipe L/R</b><span>Switch to next structure</span></div>
+      <div class="gcard"><div class="ico">🖱️</div><b>Mouse / keyboard</b><span>Drag, scroll, arrows as fallback</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <div class="eyebrow">Get started</div>
+    <h2>Install on your MacBook</h2>
+    <p class="section-sub">Copy, paste, run. Tested with Python 3.11 (conda) on macOS. Grant camera permission when prompted.</p>
+    <div class="codeblock">
+      <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
+      <pre id="installcmd"><span class="cmt"># 1. clone</span>
+git clone https://github.com/s-choung/atomic-hand.git
+cd atomic-hand
+
+<span class="cmt"># 2. environment (Python 3.11)</span>
+conda create -n atomic-hand python=3.11 -y
+conda activate atomic-hand
+
+<span class="cmt"># 3. dependencies</span>
+pip install ovito mediapipe==0.10.14 opencv-python PySide6 numpy
+
+<span class="cmt"># 4. run with the bundled demo molecules</span>
+python src/app_window.py structures/*.xyz</pre>
+    </div>
+    <p class="install-note">Rendering is powered by <a href="https://www.ovito.org/" style="color:var(--fg)">OVITO</a>'s Tachyon ray tracer, which bundles its own Qt/PySide6 — install <code>ovito</code> first and let it pull its dependencies to avoid Qt conflicts.</p>
+  </div>
+</section>
+
+<section id="notes">
+  <div class="wrap">
+    <div class="eyebrow">Good to know</div>
+    <h2>It's an early prototype</h2>
+    <p class="section-sub">Honest expectations before you try it.</p>
+    <div class="callout">
+      <b>Editing is still rough</b>
+      <p>Viewing gestures (rotate, zoom, switch, pause) are solid. But hands-on editing — like <strong>dragging and dropping individual atoms</strong> — is experimental and may not behave reliably yet.</p>
+    </div>
+    <div class="callout">
+      <b>Pinned to older versions</b>
+      <p>The native stack leans on specific, somewhat older releases (e.g. <code>mediapipe==0.10.14</code>). Newer Python or library versions can break the environment, so stick to the versions in the install steps above.</p>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <div class="eyebrow">What's next</div>
+    <h2>Roadmap</h2>
+    <div class="road">
+      <div class="item"><div class="n">01</div><b>Blender rendering</b><span>Drive Blender (e.g. the <code>io_mesh_atomic</code> add-on) for higher-fidelity, GPU-accelerated visuals beyond the CPU ray tracer.</span></div>
+      <div class="item"><div class="n">02</div><b>Stable atom editing</b><span>Reliable drag &amp; drop and bond editing.</span></div>
+      <div class="item"><div class="n">03</div><b>Browser demo</b><span>Camera + hand tracking fully client-side, no install.</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>© 2026 Seokhyun Choung · <a href="https://github.com/s-choung/atomic-hand">MIT License</a></div>
+    <div><a href="https://github.com/s-choung/atomic-hand">github.com/s-choung/atomic-hand</a></div>
+  </div>
+</footer>
+
+<script>
+  function copyInstall(btn) {
+    var text = document.getElementById('installcmd').innerText;
+    navigator.clipboard.writeText(text).then(function () {
+      var old = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(function () { btn.textContent = old; }, 1600);
+    });
+  }
+</script>
+</body>
+</html>
