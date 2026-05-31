@@ -1,4 +1,4 @@
-# Atomic Hand 🤚⚛️
+# Atomic Hand
 
 > Rotate, zoom, and flip through 3D molecules with your bare hands — no mouse, no keyboard. Just a webcam.
 
@@ -6,7 +6,7 @@
 
 ![Atomic Hand demo](docs/media/atomichand_poster.jpg)
 
-🌐 **Landing page & demo videos:** [atomic-hand.schoung.com](https://atomic-hand.schoung.com)
+**Landing page & demo videos:** [atomic-hand.schoung.com](https://atomic-hand.schoung.com)
 
 ## Demos
 
@@ -21,12 +21,12 @@ Both clips play on the [landing page](https://atomic-hand.schoung.com).
 
 ## Features
 
-- 🖐 **Real-time hand tracking** — control the camera with open-hand, fist, and two-hand gestures
-- 🎞 **High-quality rendering** — OVITO Tachyon CPU ray tracing with ambient occlusion on idle
-- 🧬 **Multiple render styles** — ball & stick, space filling, wireframe
-- 🔬 **Auto bond detection** — van der Waals based bond generation
-- ⌨️ **Mouse + keyboard fallback** — drag to rotate, scroll to zoom, arrows to switch
-- 📸 **HQ export** — one gesture renders a 1920×1440 PNG to your Desktop
+- **Real-time hand tracking** — control the camera with open-hand, fist, and two-hand gestures
+- **High-quality rendering** — OVITO Tachyon CPU ray tracing with ambient occlusion on idle
+- **Multiple render styles** — ball & stick, space filling, wireframe
+- **Auto bond detection** — van der Waals based bond generation
+- **Mouse + keyboard fallback** — drag to rotate, scroll to zoom, arrows to switch
+- **HQ export** — one gesture renders a 1920×1440 PNG to your Desktop
 
 ## Gestures
 
