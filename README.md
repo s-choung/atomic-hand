@@ -44,7 +44,12 @@ Both clips play on the [landing page](https://atomic-hand.schoung.com).
 
 ## Install
 
-Requires **macOS** and Python 3.11 (tested with conda).
+**Prerequisites:** macOS with `git` and `conda` installed.
+
+- No `conda`? Install [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/).
+- No `git`? Run `xcode-select --install`.
+
+Tested with Python 3.11 (conda).
 
 ```bash
 git clone https://github.com/s-choung/atomic-hand.git
