@@ -12,10 +12,11 @@
 
 | | |
 |---|---|
+| **Inspiration → reality** — Minority Report (left) and Atomic Hand controlling molecules by hand (right), side by side | [`docs/media/combined_demo.mp4`](docs/media/combined_demo.mp4) |
 | **Atomic Hand in action** — rotating and switching molecules by hand | [`docs/media/AtomicHand_demo_compressed.mp4`](docs/media/AtomicHand_demo_compressed.mp4) |
 | **Minority-Report-style hologram** — the inspiration | [`docs/media/minority_report_hologram.mp4`](docs/media/minority_report_hologram.mp4) |
 
-Both clips play on the [landing page](https://atomic-hand.schoung.com).
+The combined clip plays on the [landing page](https://atomic-hand.schoung.com).
 
 ---
 
@@ -43,6 +44,8 @@ Both clips play on the [landing page](https://atomic-hand.schoung.com).
 | `S` key | Toggle settings panel |
 
 ## Install
+
+> **⚡ Using Claude Code or Codex?** Just give it this prompt in a terminal: **`"clone the repo, set up the environment, install everything, and launch the demo"`** and it takes care of the rest. Skip the manual steps below.
 
 **Prerequisites:** macOS with `git` and `conda` installed.
 
