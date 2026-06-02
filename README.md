@@ -124,11 +124,12 @@ Atomic Hand is an **early prototype (v1.3)**, vibe-coded for fun. Viewing gestur
 
 It is **100% open source** (MIT). No telemetry, no network calls: the app opens your webcam locally and renders on your machine. Read the [source](src/) before you run it.
 
-## Roadmap
+## Support
 
-- GPU-accelerated rendering via **[Blender](https://www.blender.org/)** (`io_mesh_atomic`) beyond CPU Tachyon
-- Stable atom editing (drag & drop, bonds)
-- A browser demo (camera + hand tracking fully client-side)
+It's MIT licensed, so use it however you like. If it's useful:
+
+- ⭐ **[Star it on GitHub](https://github.com/s-choung/atomic-hand)** — genuinely makes my day.
+- ☕ **[Buy me a coffee](https://www.buymeacoffee.com/schoung)** — optional, always appreciated.
 
 ## License
 

@@ -250,24 +250,20 @@ irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | ie
     <div class="label" id="t-n-label">Good to know</div>
     <h2 id="t-n-h2">It's an early prototype</h2>
     <div class="callout">
-      <b id="t-c1b">Fully open source, safe to run</b>
-      <p id="t-c1p">All <a href="https://github.com/s-choung/atomic-hand" style="color:var(--void)">MIT-licensed on GitHub</a>, with no telemetry and no network calls. Don't trust me? Read the source, or paste it into any LLM and ask "is this safe?".</p>
-    </div>
-    <div class="callout">
-      <b id="t-c2b">It's still v1</b>
-      <p id="t-c2p">A rough first release. macOS is the main, fully-used platform; Windows is CI-tested but experimental. Stick to the versions the installer pins.</p>
+      <b id="t-c1b">Fully open source</b>
+      <p id="t-c1p">All <a href="https://github.com/s-choung/atomic-hand" style="color:var(--void)">MIT-licensed on GitHub</a>, with no telemetry and no network calls. Paste it into any LLM and ask "is this safe?". It's a rough first release: macOS is the main, fully-used platform; Windows is CI-tested but experimental. Stick to the versions the installer pins.</p>
     </div>
   </div>
 </section>
 
-<section id="roadmap">
+<section id="support">
   <div class="wrap">
-    <div class="label" id="t-r-label">What's next</div>
-    <h2 id="t-r-h2">Roadmap</h2>
-    <div class="road">
-      <div class="item"><div class="n">01</div><b id="t-r1b">Blender rendering</b><span id="t-r1s">Drive Blender (e.g. the <code>io_mesh_atomic</code> add-on) for higher-fidelity, GPU-accelerated visuals beyond the CPU ray tracer.</span></div>
-      <div class="item"><div class="n">02</div><b id="t-r2b">Stable atom editing</b><span id="t-r2s">Reliable drag and drop, plus bond editing.</span></div>
-      <div class="item"><div class="n">03</div><b id="t-r3b">Browser demo</b><span id="t-r3s">Camera and hand tracking fully client-side, no install.</span></div>
+    <div class="label" id="t-r-label">If you like it</div>
+    <h2 id="t-r-h2">Star it. Use it however you like.</h2>
+    <p class="section-sub" id="t-r-sub">It's MIT licensed, so do whatever you want with it. If it's useful, a GitHub star genuinely makes my day. Coffee optional, always appreciated.</p>
+    <div class="cta" style="justify-content:flex-start">
+      <a class="btn" id="t-r-star" href="https://github.com/s-choung/atomic-hand">&#11088; Star on GitHub <span class="arrow">&#8599;</span></a>
+      <a class="btn ghost" id="t-r-coffee" href="https://www.buymeacoffee.com/schoung">&#9749; Buy me a coffee <span class="arrow">&#8599;</span></a>
     </div>
   </div>
 </section>
@@ -327,18 +323,13 @@ irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | ie
     't-i-note': '렌더링은 <a href="https://www.ovito.org/">OVITO</a>의 Tachyon 레이트레이서가 담당합니다. 자체 Qt/PySide6를 포함하고 있어서, 설치 스크립트가 <code>ovito</code>를 먼저 깔아 Qt 충돌을 피합니다.',
     't-n-label': '알아두기',
     't-n-h2': '아직 초기 프로토타입입니다',
-    't-c1b': '전부 오픈소스라 안심해도 돼요',
-    't-c1p': '<a href="https://github.com/s-choung/atomic-hand" style="color:var(--void)">GitHub</a>에 MIT로 다 공개돼 있고, 텔레메트리도 네트워크 통신도 없어요. 못 믿겠으면 소스를 직접 읽어보거나, 아무 LLM에 붙여넣고 "이거 안전해?"라고 물어보세요.',
-    't-c2b': '아직 v1이에요',
-    't-c2p': '거친 첫 공개 버전이에요. macOS가 주력이고, Windows는 CI로 테스트되지만 실험적입니다. 설치 스크립트가 고정한 버전을 그대로 쓰세요.',
-    't-r-label': '다음 계획',
-    't-r-h2': '로드맵',
-    't-r1b': 'Blender 렌더링',
-    't-r1s': '<code>io_mesh_atomic</code> 같은 애드온으로 Blender를 구동해, CPU 레이트레이서를 넘어선 GPU 가속 고품질 비주얼을 만듭니다.',
-    't-r2b': '안정적인 원자 편집',
-    't-r2s': '믿을 만한 드래그 앤 드롭과 결합 편집.',
-    't-r3b': '브라우저 데모',
-    't-r3s': '카메라와 손 추적을 전부 브라우저 안에서. 설치가 필요 없습니다.'
+    't-c1b': '전부 오픈소스',
+    't-c1p': '<a href="https://github.com/s-choung/atomic-hand" style="color:var(--void)">GitHub</a>에 MIT로 다 공개돼 있고, 텔레메트리도 네트워크 통신도 없어요. 아무 LLM에 붙여넣고 "이거 안전해?"라고 물어보세요. 거친 첫 공개 버전이에요. macOS가 주력이고, Windows는 CI로 테스트되지만 실험적입니다. 설치 스크립트가 고정한 버전을 그대로 쓰세요.',
+    't-r-label': '맘에 들면',
+    't-r-h2': '스타 한 번. 그리고 맘대로 쓰세요.',
+    't-r-sub': 'MIT 라이선스라 마음대로 쓰셔도 됩니다. 쓸 만하면 GitHub 스타 한 번이 큰 힘이 돼요. 커피는 선택, 늘 감사하죠.',
+    't-r-star': '&#11088; GitHub 스타 <span class="arrow">&#8599;</span>',
+    't-r-coffee': '&#9749; 커피 사주기 <span class="arrow">&#8599;</span>'
   };
 
   var _orig = {};
