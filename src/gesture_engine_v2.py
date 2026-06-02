@@ -27,12 +27,12 @@ class SmoothValue:
 
 
 class SwipeDetector:
-    def __init__(self, threshold=0.06, time_window=0.3):
+    def __init__(self, threshold=0.05, time_window=0.35):
         self.threshold = threshold
         self.time_window = time_window
-        self.history = deque(maxlen=10)
+        self.history = deque(maxlen=12)
         self.last_swipe_time = 0
-        self.cooldown = 0.6
+        self.cooldown = 0.45
 
     def update(self, palm_x, timestamp):
         self.history.append((palm_x, timestamp))
@@ -53,7 +53,7 @@ class SwipeDetector:
             return ""
 
         velocity = dx / dt
-        if abs(dx) > self.threshold and abs(velocity) > 0.2:
+        if abs(dx) > self.threshold and abs(velocity) > 0.13:
             self.last_swipe_time = timestamp
             self.history.clear()
             return "LEFT" if dx > 0 else "RIGHT"
@@ -102,6 +102,20 @@ class GestureEngineV2:
         if extended >= 3:
             return "OPEN"
         return "OTHER"
+
+    def _is_thumbs_up(self, lm):
+        """Thumb sticking straight up, the other four fingers folded. Used as a
+        deliberate 'save snapshot' trigger that won't collide with fist/open."""
+        folded = (not self._finger_extended(lm, 8, 6)
+                  and not self._finger_extended(lm, 12, 10)
+                  and not self._finger_extended(lm, 16, 14)
+                  and not self._finger_extended(lm, 20, 18))
+        if not folded:
+            return False
+        # y grows downward: thumb tip must be clearly above IP/MCP, wrist and index MCP
+        return (lm[4].y < lm[3].y < lm[2].y
+                and lm[4].y < lm[5].y - 0.04
+                and lm[4].y < lm[0].y - 0.06)
 
     def _palm_center(self, lm):
         x = (lm[0].x + lm[5].x + lm[17].x) / 3
@@ -163,20 +177,27 @@ class GestureEngineV2:
                 return GestureResult(gesture="ZOOM", is_playing=True, zoom_delta=zoom_delta)
 
         lm = hand_landmarks_list[0].landmark
+
+        if self._is_thumbs_up(lm):
+            self.state = "PAUSED"
+            self._reset_rotation_state()
+            return GestureResult(gesture="THUMBS_UP", is_playing=False)
+
+        # Swipe detection runs for any single hand, independent of open/fist,
+        # so a quick horizontal flick reliably switches structures even when the
+        # finger classification flickers mid-swipe.
+        palm_x, palm_y = self._palm_center(lm)
+        self.swipe_detector.update(palm_x, now)
+        swipe = self.swipe_detector.detect(now)
+        if swipe:
+            self._reset_rotation_state()
+            return GestureResult(gesture=f"SWIPE_{swipe}", swipe=swipe,
+                                 is_playing=self.is_playing)
+
         gesture = self._classify_hand(lm)
         result = GestureResult(gesture=gesture, is_playing=self.is_playing)
 
         if gesture == "OPEN":
-            palm_x, palm_y = self._palm_center(lm)
-            self.swipe_detector.update(palm_x, now)
-
-            swipe = self.swipe_detector.detect(now)
-            if swipe:
-                self._reset_rotation_state()
-                result.gesture = f"SWIPE_{swipe}"
-                result.swipe = swipe
-                return result
-
             angle = self._hand_angle(lm)
 
             if self.state == "ROTATING" and self.prev_palm_x is not None:
@@ -205,14 +226,6 @@ class GestureEngineV2:
             result.is_playing = True
 
         elif gesture == "FIST":
-            palm_x, palm_y = self._palm_center(lm)
-            self.swipe_detector.update(palm_x, now)
-            swipe = self.swipe_detector.detect(now)
-            if swipe:
-                result.gesture = f"SWIPE_{swipe}"
-                result.swipe = swipe
-                self.swipe_detector.reset()
-                return result
             self.state = "PAUSED"
             self._reset_rotation_state()
             result.gesture = "FIST"

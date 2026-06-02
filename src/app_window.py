@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import json
 import subprocess
 import threading
 import numpy as np
@@ -9,7 +10,7 @@ import mediapipe as mp
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel,
     QDockWidget, QGroupBox, QCheckBox, QHBoxLayout, QScrollArea, QPushButton,
-    QSlider, QFileDialog)
+    QSlider, QFileDialog, QComboBox)
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QImage, QPixmap
 
@@ -22,27 +23,53 @@ DEFAULT_FILES = [
     os.path.join(_STRUCT_DIR, "C60_buckyball.xyz"),
     os.path.join(_STRUCT_DIR, "ethanol.xyz"),
     os.path.join(_STRUCT_DIR, "pyrrole.xyz"),
-    "/Users/sean/Library/CloudStorage/GoogleDrive-wjdtjrgus9967@gmail.com/My Drive/Research_2026/playground/97_understand_ark/ARKdistillationV2_repo/OMat24_and_HTS/src/fairchem/data/odac/force_field/FF_calcs/CO2_example/frame.cif",
 ]
 
 SUPPORTED_EXTENSIONS = ('.xyz', '.cif', '.pdb', '.poscar', '.vasp', '.lammps')
 
 
 class CameraReaderThread(threading.Thread):
-    """grab() 전용 — 최대 속도로 버퍼를 drain하고 최신 프레임만 보관."""
-    def __init__(self, cam):
+    """grab() 전용 — 최대 속도로 버퍼를 drain하고 최신 프레임만 보관.
+    Owns the capture device so it can be turned fully off/on (camera light)."""
+    def __init__(self, cam_index):
         super().__init__(daemon=True)
-        self.cam = cam
+        self.cam_index = cam_index
+        self.cam = None
         self.running = True
+        self.enabled = True
         self.lock = threading.Lock()
         self._frame = None
         self._frame_id = 0
 
+    def _open(self):
+        cap = cv2.VideoCapture(self.cam_index)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            self.cam = cap
+        else:
+            cap.release()
+
+    def _close(self):
+        if self.cam is not None:
+            try:
+                self.cam.release()
+            except Exception:
+                pass
+            self.cam = None
+
     def run(self):
         while self.running:
-            if not self.cam or not self.cam.isOpened():
+            if not self.enabled:
+                self._close()              # release device -> camera light off
                 time.sleep(0.05)
                 continue
+            if self.cam is None or not self.cam.isOpened():
+                self._open()
+                if self.cam is None:
+                    time.sleep(0.2)
+                    continue
             self.cam.grab()
             ret, frame = self.cam.retrieve()
             if not ret:
@@ -52,12 +79,16 @@ class CameraReaderThread(threading.Thread):
                 self._frame = frame
                 self._frame_id += 1
 
+    def set_enabled(self, on):
+        self.enabled = bool(on)
+
     def get_latest(self):
         with self.lock:
             return self._frame, self._frame_id
 
     def stop(self):
         self.running = False
+        self._close()
 
 
 class MediaPipeThread(threading.Thread):
@@ -110,18 +141,37 @@ class MediaPipeThread(threading.Thread):
         self.running = False
 
 
+# "Graphite": clean-dark charcoal theme — sibling of the black/white/graphite
+# website. Neutral surfaces, one near-white accent, no navy/indigo.
 DARK_SS = """
-QDockWidget { color: #ddd; }
-QDockWidget::title { background: #1a1a2e; padding: 8px; font-size: 12px; }
-QGroupBox { color: #bbb; border: 1px solid #333; border-radius: 5px;
-            margin-top: 14px; padding: 14px 8px 10px 8px; font-size: 12px; }
-QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 6px; }
-QCheckBox { color: #ccc; spacing: 8px; font-size: 12px; padding: 3px 0; }
+QWidget { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; }
+QDockWidget { color: #f1f1f1; }
+QDockWidget::title { background: #161616; color: #f1f1f1; padding: 8px;
+            font-size: 12px; border-bottom: 1px solid #2e2e2e; }
+QGroupBox { color: #8f8f8f; background: #161616; border: 1px solid #2e2e2e;
+            border-radius: 6px; margin-top: 14px; padding: 14px 8px 10px 8px;
+            font-size: 12px; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 6px; color: #8f8f8f; }
+QLabel { color: #f1f1f1; font-size: 12px; }
+QCheckBox { color: #f1f1f1; spacing: 8px; font-size: 12px; padding: 3px 0; }
 QCheckBox::indicator { width: 16px; height: 16px; }
-QCheckBox::indicator:unchecked { border: 1px solid #555; border-radius: 3px; background: #222; }
-QCheckBox::indicator:checked { border: 1px solid #4af; border-radius: 3px; background: #4af; }
-QScrollArea { border: none; background: #111122; }
-QWidget#settingsContainer { background: #111122; }
+QCheckBox::indicator:unchecked { border: 1px solid #3a3a3a; border-radius: 3px; background: #202020; }
+QCheckBox::indicator:checked { border: 1px solid #e8e8e8; border-radius: 3px; background: #e8e8e8; }
+QPushButton { background: #202020; color: #f1f1f1; border: 1px solid #2e2e2e;
+            border-radius: 6px; padding: 6px 10px; font-size: 11px; }
+QPushButton:hover { background: #2a2a2a; border-color: #4a4a4a; color: #ffffff; }
+QPushButton:pressed { background: #181818; }
+QSlider::groove:horizontal { height: 4px; background: #2e2e2e; border-radius: 2px; }
+QSlider::handle:horizontal { background: #e8e8e8; width: 14px; height: 14px;
+            margin: -6px 0; border-radius: 7px; }
+QSlider::handle:horizontal:hover { background: #ffffff; }
+QSlider::sub-page:horizontal { background: #6a6a6a; border-radius: 2px; }
+QScrollArea { border: none; background: #161616; }
+QWidget#settingsContainer { background: #161616; }
+QScrollBar:vertical { background: #161616; width: 10px; margin: 0; }
+QScrollBar::handle:vertical { background: #3a3a3a; border-radius: 5px; min-height: 24px; }
+QScrollBar::handle:vertical:hover { background: #4a4a4a; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 """
 
 
@@ -141,20 +191,15 @@ class SettingsPanel(QWidget):
         info_layout.setContentsMargins(8, 16, 8, 8)
 
         self.info_label = QLabel("")
-        self.info_label.setStyleSheet("color: #ccc; font-size: 11px;")
+        self.info_label.setStyleSheet("color: #f1f1f1; font-size: 11px;")
         self.info_label.setWordWrap(True)
         info_layout.addWidget(self.info_label)
 
         self.fps_label = QLabel("")
-        self.fps_label.setStyleSheet("color: #666; font-size: 10px;")
+        self.fps_label.setStyleSheet("color: #8f8f8f; font-size: 10px;")
         info_layout.addWidget(self.fps_label)
 
-        btn_style = ("QPushButton { background: #2a3a5a; color: #ccc; border: 1px solid #444; "
-                     "border-radius: 4px; padding: 5px; font-size: 11px; } "
-                     "QPushButton:hover { background: #3a4a7a; color: #fff; }")
-
         self.open_btn = QPushButton("Open File...")
-        self.open_btn.setStyleSheet(btn_style)
         info_layout.addWidget(self.open_btn)
 
         layout.addWidget(info_group)
@@ -188,7 +233,7 @@ class SettingsPanel(QWidget):
             controls_layout.addLayout(row)
 
         self.gesture_status = QLabel("IDLE")
-        self.gesture_status.setStyleSheet("color: #666; font-size: 10px; padding-top: 4px;")
+        self.gesture_status.setStyleSheet("color: #8f8f8f; font-size: 10px; padding-top: 4px;")
         controls_layout.addWidget(self.gesture_status)
 
         layout.addWidget(controls_group)
@@ -203,14 +248,12 @@ class SettingsPanel(QWidget):
         self.rot_slider = QSlider(Qt.Horizontal)
         self.rot_slider.setRange(100, 1000)
         self.rot_slider.setValue(500)
-        self.rot_slider.setStyleSheet("QSlider::handle { background: #4af; }")
         sens_layout.addWidget(self.rot_slider)
 
         sens_layout.addWidget(QLabel("Zoom"))
         self.zoom_slider = QSlider(Qt.Horizontal)
         self.zoom_slider.setRange(10, 150)
         self.zoom_slider.setValue(50)
-        self.zoom_slider.setStyleSheet("QSlider::handle { background: #4af; }")
         sens_layout.addWidget(self.zoom_slider)
 
         layout.addWidget(sens_group)
@@ -229,6 +272,16 @@ class SettingsPanel(QWidget):
         self.cb_cell.setChecked(True)
         display_layout.addWidget(self.cb_cell)
 
+        self.cb_gesture_save = QCheckBox("Save on 👍 (thumbs up)")
+        self.cb_gesture_save.setChecked(True)
+        self.cb_gesture_save.setToolTip(
+            "When on, a thumbs-up gesture saves a transparent HQ PNG in the background.")
+        display_layout.addWidget(self.cb_gesture_save)
+
+        self.cam_btn = QPushButton("📷  Camera: On")
+        self.cam_btn.setToolTip("Turn the webcam (and gesture control) off / on.")
+        display_layout.addWidget(self.cam_btn)
+
         layout.addWidget(display_group)
 
         # --- Elements (populated dynamically) ---
@@ -245,23 +298,27 @@ class SettingsPanel(QWidget):
         render_layout.setSpacing(6)
         render_layout.setContentsMargins(8, 16, 8, 8)
 
-        self.render_btn = QPushButton("HQ Render → PNG")
-        self.render_btn.setStyleSheet(
-            "QPushButton { background: #2a3a5a; color: #ccc; border: 1px solid #4af; "
-            "border-radius: 4px; padding: 6px; font-size: 11px; } "
-            "QPushButton:hover { background: #3a4a7a; color: #fff; }"
-        )
+        render_layout.addWidget(QLabel("Quality"))
+        self.quality_combo = QComboBox()
+        render_layout.addWidget(self.quality_combo)
+
+        self.save_dir_btn = QPushButton("Save folder: Desktop")
+        self.save_dir_btn.setToolTip("Choose where snapshots are saved.")
+        render_layout.addWidget(self.save_dir_btn)
+
+        self.render_btn = QPushButton("HQ Render → transparent PNG")
         render_layout.addWidget(self.render_btn)
 
         self.render_status = QLabel("")
-        self.render_status.setStyleSheet("color: #666; font-size: 10px;")
+        self.render_status.setStyleSheet("color: #8f8f8f; font-size: 10px;")
+        self.render_status.setWordWrap(True)
         render_layout.addWidget(self.render_status)
 
         self.open_render_btn = QPushButton("Open Image")
         self.open_render_btn.setStyleSheet(
-            "QPushButton { background: #2a5a3a; color: #ccc; border: 1px solid #4a4; "
-            "border-radius: 4px; padding: 5px; font-size: 11px; } "
-            "QPushButton:hover { background: #3a7a4a; color: #fff; }"
+            "QPushButton { background: #202020; color: #f1f1f1; border: 1px solid #3fb950; "
+            "border-radius: 6px; padding: 6px 10px; font-size: 11px; } "
+            "QPushButton:hover { background: #2a2a2a; color: #fff; }"
         )
         self.open_render_btn.hide()
         render_layout.addWidget(self.open_render_btn)
@@ -298,11 +355,13 @@ class MolView(QLabel):
         super().__init__(parent)
         self.setAlignment(Qt.AlignCenter)
         self.setMinimumSize(800, 600)
-        self.setStyleSheet("background-color: #0F0F1F;")
+        self.setStyleSheet("background-color: #0E0E0E;")
+        self.setAcceptDrops(True)
         self.renderer = None
         self._dragging = False
         self._last_pos = None
         self.on_view_changed = None
+        self.on_click = None   # (x, y) -> bool ; returns True if click was consumed
 
     def update_frame(self, bgr_array):
         h, w, ch = bgr_array.shape
@@ -312,13 +371,31 @@ class MolView(QLabel):
             self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation
         ))
 
+    # the rendered frame is exactly the widget size, so widget coords == frame coords
+    def dragEnterEvent(self, event):
+        win = self.window()
+        if hasattr(win, "dragEnterEvent"):
+            win.dragEnterEvent(event)
+
+    def dropEvent(self, event):
+        win = self.window()
+        if hasattr(win, "dropEvent"):
+            win.dropEvent(event)
+
     def mousePressEvent(self, event):
+        pos = event.position()
         if event.button() == Qt.LeftButton:
-            self._dragging = True
-            self._last_pos = event.position()
+            if self.on_click and self.on_click(pos.x(), pos.y()):
+                return  # consumed by a UI element (e.g. gallery thumbnail)
+            self._dragging = "rotate"
+            self._last_pos = pos
+        elif event.button() == Qt.RightButton:
+            # right-drag pans (translates) the whole structure
+            self._dragging = "pan"
+            self._last_pos = pos
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() in (Qt.LeftButton, Qt.RightButton):
             self._dragging = False
             self._last_pos = None
 
@@ -327,7 +404,10 @@ class MolView(QLabel):
             pos = event.position()
             dx = pos.x() - self._last_pos.x()
             dy = pos.y() - self._last_pos.y()
-            self.renderer.rotate(dx * 0.5, -dy * 0.5)
+            if self._dragging == "pan":
+                self.renderer.pan(dx, dy)
+            else:
+                self.renderer.rotate(dx * 0.5, -dy * 0.5)
             self._last_pos = pos
             if self.on_view_changed:
                 self.on_view_changed()
@@ -364,7 +444,7 @@ def find_macbook_camera():
 class GestureMolWindow(QMainWindow):
     def __init__(self, file_list):
         super().__init__()
-        self.setWindowTitle("Atomic Hand v1.2 by Seokhyun Choung")
+        self.setWindowTitle("Atomic Hand v1.3 by Seokhyun Choung")
         self.resize(1300, 850)
         self.setAcceptDrops(True)
 
@@ -375,6 +455,20 @@ class GestureMolWindow(QMainWindow):
         self.render_scale = 0.75
         self._show_axes = True
 
+        # background (separate-process) HQ render — defined before the panel is built
+        self._render_jobs = []
+        self._save_dir = os.path.join(os.path.expanduser("~/Desktop"), "atomic-hand")
+        os.makedirs(self._save_dir, exist_ok=True)
+        self._hq_render_script = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "hq_render.py")
+        # quality presets: label -> (width, height, aa, ambient_occlusion, shadows)
+        self.QUALITY = {
+            "Fast (1280)":     (1280, 960, 6, False, False),
+            "Standard (1920)": (1920, 1440, 12, True, False),
+            "High (2400)":     (2400, 1800, 20, True, True),
+            "Ultra (3200)":    (3200, 2400, 28, True, True),
+        }
+
         central = QWidget()
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
@@ -384,23 +478,21 @@ class GestureMolWindow(QMainWindow):
         self.mol_view = MolView()
         self.mol_view.renderer = self.renderer
         self.mol_view.on_view_changed = self._mark_dirty
+        self.mol_view.on_click = self._handle_canvas_click
         layout.addWidget(self.mol_view)
 
         self._setup_settings_panel()
         self.thumbnails = self._generate_thumbnails()
 
-        cam_indices = find_macbook_camera()
-        self.cam = None
-        for idx in cam_indices:
+        # pick the first working camera index; the reader owns the device
+        self.cam_index = 0
+        for idx in find_macbook_camera():
             cap = cv2.VideoCapture(idx)
-            if cap.isOpened():
-                self.cam = cap
-                break
+            ok = cap.isOpened()
             cap.release()
-        if self.cam and self.cam.isOpened():
-            self.cam.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-            self.cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-            self.cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            if ok:
+                self.cam_index = idx
+                break
 
         self.gesture_engine = GestureEngineV2()
         self.cam_frame = None
@@ -416,7 +508,7 @@ class GestureMolWindow(QMainWindow):
         mp_drawing = mp.solutions.drawing_utils
         mp_connections = mp.solutions.hands.HAND_CONNECTIONS
 
-        self.cam_reader = CameraReaderThread(self.cam)
+        self.cam_reader = CameraReaderThread(self.cam_index)
         self.cam_reader.start()
 
         self.cam_thread = MediaPipeThread(
@@ -439,6 +531,12 @@ class GestureMolWindow(QMainWindow):
         self._pending_cell_change = None
         self._pending_element_change = None
 
+        self._toast_text = ""
+        self._toast_until = 0.0
+        self._toast_ok = True
+        self._prev_save_gesture = ""
+        self._last_save_time = 0.0
+
         self.timer = QTimer()
         self.timer.timeout.connect(self._tick)
         self.timer.start(16)
@@ -458,7 +556,7 @@ class GestureMolWindow(QMainWindow):
         self.settings_panel = SettingsPanel()
         self.settings_panel.setStyleSheet(DARK_SS)
         scroll.setWidget(self.settings_panel)
-        scroll.setStyleSheet("background: #111122;")
+        scroll.setStyleSheet("background: #161616;")
         dock.setWidget(scroll)
         dock.setStyleSheet(DARK_SS)
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
@@ -466,9 +564,9 @@ class GestureMolWindow(QMainWindow):
         self.settings_toggle_btn = QPushButton("☰", self)
         self.settings_toggle_btn.setFixedSize(36, 36)
         self.settings_toggle_btn.setStyleSheet(
-            "QPushButton { background: rgba(30,30,50,0.8); color: #aaa; border: 1px solid #444; "
-            "border-radius: 4px; font-size: 18px; } "
-            "QPushButton:hover { background: rgba(60,60,90,0.9); color: #fff; }"
+            "QPushButton { background: rgba(22,22,22,0.85); color: #f1f1f1; border: 1px solid #2e2e2e; "
+            "border-radius: 6px; font-size: 18px; } "
+            "QPushButton:hover { background: rgba(42,42,42,0.95); color: #fff; }"
         )
         self.settings_toggle_btn.clicked.connect(lambda: self.settings_dock.setVisible(True))
         self.settings_toggle_btn.hide()
@@ -477,9 +575,9 @@ class GestureMolWindow(QMainWindow):
 
         self.settings_panel.populate_elements(self.renderer.get_element_info())
 
-        if not self.renderer.has_cell():
-            self.settings_panel.cb_cell.setEnabled(False)
-            self.settings_panel.cb_cell.setChecked(False)
+        # PBC box is hidden by default; the toggle is enabled only if a cell exists
+        self.settings_panel.cb_cell.setEnabled(self.renderer.has_cell())
+        self.settings_panel.cb_cell.setChecked(self.renderer._cell_visible)
 
         self.settings_panel.cb_axes.stateChanged.connect(self._on_axes_toggled)
         self.settings_panel.cb_cell.stateChanged.connect(self._on_cell_toggled)
@@ -490,6 +588,13 @@ class GestureMolWindow(QMainWindow):
         self.settings_panel.render_btn.clicked.connect(self._on_hq_render)
         self.settings_panel.open_render_btn.clicked.connect(self._on_open_render)
 
+        self.settings_panel.quality_combo.addItems(list(self.QUALITY.keys()))
+        self.settings_panel.quality_combo.setCurrentText("Standard (1920)")
+        self.settings_panel.save_dir_btn.setText(
+            f"Save folder: {os.path.basename(self._save_dir)}")
+        self.settings_panel.save_dir_btn.clicked.connect(self._choose_save_dir)
+        self.settings_panel.cam_btn.clicked.connect(self._toggle_camera)
+
         self.settings_panel.rot_slider.valueChanged.connect(
             lambda v: setattr(self.gesture_engine, 'rotation_sensitivity', float(v)))
         self.settings_panel.zoom_slider.valueChanged.connect(
@@ -497,6 +602,22 @@ class GestureMolWindow(QMainWindow):
 
         self.settings_panel.open_btn.clicked.connect(self._on_open_file)
         self._update_structure_info()
+
+    def _choose_save_dir(self):
+        d = QFileDialog.getExistingDirectory(self, "Choose save folder", self._save_dir)
+        if d:
+            self._save_dir = d
+            label = os.path.basename(d) or d
+            self.settings_panel.save_dir_btn.setText(f"Save folder: {label}")
+
+    def _toggle_camera(self):
+        on = not self.cam_reader.enabled
+        self.cam_reader.set_enabled(on)
+        self.settings_panel.cam_btn.setText("📷  Camera: On" if on else "📷  Camera: Off")
+        if not on:
+            self.cam_frame = None          # hide the webcam PiP overlay
+            self.gesture_name = "IDLE"
+            self.settings_panel.gesture_status.setText("Camera off")
 
     def _update_structure_info(self):
         fname = os.path.basename(self.renderer.filepath)
@@ -519,31 +640,87 @@ class GestureMolWindow(QMainWindow):
             self.file_idx = len(self.file_list) - 1
             self._load_current_structure()
 
-    def _on_hq_render(self):
-        self.settings_panel.render_status.setText("Rendering...")
-        self.settings_panel.open_render_btn.hide()
-        self.settings_panel.render_btn.setEnabled(False)
-        QApplication.processEvents()
+    def _quality_params(self):
+        label = self.settings_panel.quality_combo.currentText()
+        return self.QUALITY.get(label, self.QUALITY["High (2400)"])
+
+    def _start_background_render(self, debounce=0.0):
+        """Spawn a SEPARATE PROCESS to render a transparent HQ PNG. The live
+        view keeps running at full speed — nothing in the GUI blocks."""
+        now = time.time()
+        if debounce and now - self._last_save_time < debounce:
+            return
+        if self._render_jobs:   # one at a time (keeps RAM sane)
+            self._set_toast("Still rendering - one at a time", secs=1.4)
+            return
+        self._last_save_time = now
+
+        w, h, aa, ao, shadows = self._quality_params()
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        name = os.path.basename(self.renderer.filepath).rsplit('.', 1)[0]
         try:
-            from ovito.vis import TachyonRenderer as TR
-            from molecule_renderer import qimage_to_bgr
-            r = TR()
-            r.antialiasing_samples = 8
-            r.ambient_occlusion = True
-            r.ambient_occlusion_brightness = 0.65
-            r.shadows = True
-            self.renderer._update_camera()
-            qimg = self.renderer.vp.render_image(size=(1920, 1440), renderer=r)
-            result = qimage_to_bgr(qimg)
-            ts = time.strftime("%Y%m%d_%H%M%S")
-            fname = os.path.basename(self.renderer.filepath).rsplit('.', 1)[0]
-            self._last_render_path = os.path.expanduser(f"~/Desktop/GestureMol_{fname}_{ts}.png")
-            cv2.imwrite(self._last_render_path, result)
-            self.settings_panel.render_status.setText(f"Saved: {os.path.basename(self._last_render_path)}")
-            self.settings_panel.open_render_btn.show()
+            os.makedirs(self._save_dir, exist_ok=True)
+        except Exception:
+            pass
+        output = os.path.join(self._save_dir, f"AtomicHand_{name}_{ts}.png")
+
+        r = self.renderer
+        params = {
+            "filepath": r.filepath, "output": output,
+            "width": w, "height": h, "aa": aa, "ao": ao, "shadows": shadows,
+            "azimuth": r.azimuth, "elevation": r.elevation, "distance": r.distance,
+            "center": np.asarray(r.center, dtype=float).tolist(), "fov": r.fov,
+            "style_idx": r.style_idx,
+            "hidden": list(getattr(r, "_hidden_elements", set())),
+            "cell_visible": bool(getattr(r, "_cell_visible", False)),
+        }
+        json_path = output + ".params.json"
+        # leave cores for the live view + run at low priority so the UI stays smooth
+        n = max(2, (os.cpu_count() or 4) // 2)
+        env = os.environ.copy()
+        for k in ("OMP_NUM_THREADS", "OVITO_THREAD_COUNT", "MKL_NUM_THREADS",
+                  "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+            env[k] = str(n)
+        try:
+            with open(json_path, "w") as f:
+                json.dump(params, f)
+            proc = subprocess.Popen(
+                [sys.executable, self._hq_render_script, json_path],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                env=env, preexec_fn=lambda: os.nice(12))
         except Exception as e:
-            self.settings_panel.render_status.setText(f"Error: {e}")
-        self.settings_panel.render_btn.setEnabled(True)
+            self._set_toast(f"Render failed: {e}", ok=False)
+            return
+        self._render_jobs.append({"proc": proc, "output": output, "json": json_path})
+        self._set_toast("Rendering... (keep moving)", secs=1.0)
+
+    def _poll_render_jobs(self):
+        for job in list(self._render_jobs):
+            rc = job["proc"].poll()
+            if rc is None:
+                continue
+            self._render_jobs.remove(job)
+            try:
+                os.remove(job["json"])
+            except Exception:
+                pass
+            if rc == 0 and os.path.exists(job["output"]):
+                self._last_render_path = job["output"]
+                base = os.path.basename(job["output"])
+                self._set_toast(f"Saved  {base}", secs=3.0)
+                self.settings_panel.render_status.setText(f"Saved: {base}")
+                self.settings_panel.open_render_btn.show()
+            else:
+                self._set_toast("Render failed", ok=False, secs=3.0)
+                self.settings_panel.render_status.setText("Render failed")
+
+    def _on_hq_render(self):
+        self._start_background_render()
+
+    def _set_toast(self, msg, ok=True, secs=2.8):
+        self._toast_text = msg
+        self._toast_ok = ok
+        self._toast_until = time.time() + secs
 
     def _on_open_render(self):
         if hasattr(self, '_last_render_path') and os.path.exists(self._last_render_path):
@@ -617,6 +794,9 @@ class GestureMolWindow(QMainWindow):
             return
         t0 = time.time()
         self._apply_pending_changes()
+        self._poll_render_jobs()
+        if self._render_jobs:
+            self._set_toast("Rendering... (keep moving)", secs=0.5)
 
         cam_frame, gesture_result, frame_id = self.cam_thread.get_latest()
         if frame_id != self._last_cam_frame_id:
@@ -635,9 +815,17 @@ class GestureMolWindow(QMainWindow):
                 elif gesture_result.swipe == "RIGHT":
                     self._prev_structure()
                 self.gesture_name = gesture_result.gesture
+
+                # save snapshot on the rising edge of a thumbs-up (if enabled)
+                if (self.gesture_name == "THUMBS_UP" and self._prev_save_gesture != "THUMBS_UP"
+                        and self.settings_panel.cb_gesture_save.isChecked()):
+                    self._start_background_render(debounce=1.5)
+                self._prev_save_gesture = self.gesture_name
+
                 status_map = {
                     "OPEN": "✋ Rotating", "FIST": "✊ Paused",
                     "ZOOM": "✋✋ Zooming", "IDLE": "No hand",
+                    "THUMBS_UP": "👍 Saving",
                 }
                 status = status_map.get(self.gesture_name, self.gesture_name)
                 self.settings_panel.gesture_status.setText(status)
@@ -660,9 +848,17 @@ class GestureMolWindow(QMainWindow):
             if not self._is_high_quality and (now - self._last_render_time) < 0.03:
                 pass
             else:
-                rw = w
-                rh = h
-                self._mol_cache = self.renderer.render(rw, rh)
+                if self._is_high_quality:
+                    img = self.renderer.render(w, h)          # idle: full resolution
+                else:
+                    # interactive: render the molecule at reduced resolution and
+                    # upscale — far less CPU while moving. Overlays stay crisp.
+                    rw = max(2, int(w * 0.55))
+                    rh = max(2, int(h * 0.55))
+                    img = self.renderer.render(rw, rh)
+                    if (rw, rh) != (w, h):
+                        img = cv2.resize(img, (w, h))
+                self._mol_cache = img
                 self._mol_cache_size = (w, h)
                 self._mol_dirty = False
                 self._last_render_time = now
@@ -675,6 +871,7 @@ class GestureMolWindow(QMainWindow):
         self._draw_axes_overlay(mol_frame)
         self._draw_gallery(mol_frame)
         self._draw_camera_overlay(mol_frame)
+        self._draw_toast(mol_frame)
 
         self.mol_view.update_frame(mol_frame)
 
@@ -719,45 +916,91 @@ class GestureMolWindow(QMainWindow):
             cv2.putText(frame, "[S] Settings", (w - 100, h - 12),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.35, (100, 100, 120), 1, cv2.LINE_AA)
 
+    GALLERY_H = 64
+    THUMB_W = 80
+    THUMB_H = 50
+    THUMB_PAD = 8
+
+    def _gallery_rects(self, w, h):
+        """Yield (index, x, y, thumb_w, thumb_h) for each gallery thumbnail.
+        Shared by the renderer and the click hit-test so they always agree."""
+        if len(self.file_list) <= 1:
+            return
+        gallery_y = h - self.GALLERY_H
+        total_width = len(self.file_list) * (self.THUMB_W + self.THUMB_PAD) - self.THUMB_PAD
+        start_x = max(0, (w - total_width) // 2)
+        y = gallery_y + (self.GALLERY_H - self.THUMB_H) // 2
+        for i in range(len(self.file_list)):
+            x = start_x + i * (self.THUMB_W + self.THUMB_PAD)
+            if x + self.THUMB_W > w:
+                break
+            yield i, x, y, self.THUMB_W, self.THUMB_H
+
+    def _handle_canvas_click(self, cx, cy):
+        """Called on left-click in the canvas. If a gallery thumbnail was hit,
+        switch to that structure and return True (so it isn't treated as a drag)."""
+        w = self.mol_view.width()
+        h = self.mol_view.height()
+        for i, x, y, tw, th in self._gallery_rects(w, h):
+            if x <= cx <= x + tw and y <= cy <= y + th:
+                if i != self.file_idx:
+                    self.file_idx = i
+                    self._load_current_structure()
+                return True
+        return False
+
     def _draw_gallery(self, frame):
         if len(self.file_list) <= 1:
             return
 
         h, w = frame.shape[:2]
-        gallery_h = 64
-        gallery_y = h - gallery_h
+        gallery_y = h - self.GALLERY_H
 
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, gallery_y), (w, h), (10, 10, 15), -1)
-        cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+        cv2.rectangle(overlay, (0, gallery_y), (w, h), (20, 20, 20), -1)
+        cv2.addWeighted(overlay, 0.8, frame, 0.2, 0, frame)
 
-        thumb_w = 80
-        thumb_h = 50
-        padding = 8
-        total_width = len(self.file_list) * (thumb_w + padding) - padding
-        start_x = max(0, (w - total_width) // 2)
-
-        for i, filepath in enumerate(self.file_list):
-            x = start_x + i * (thumb_w + padding)
-            y = gallery_y + (gallery_h - thumb_h) // 2
-
-            if x + thumb_w > w:
-                break
-
+        for i, x, y, tw, th in self._gallery_rects(w, h):
             if i < len(self.thumbnails) and self.thumbnails[i] is not None:
-                resized = cv2.resize(self.thumbnails[i], (thumb_w, thumb_h))
-                frame[y:y+thumb_h, x:x+thumb_w] = resized
+                resized = cv2.resize(self.thumbnails[i], (tw, th))
+                frame[y:y+th, x:x+tw] = resized
 
             if i == self.file_idx:
-                cv2.rectangle(frame, (x-2, y-2), (x+thumb_w+2, y+thumb_h+2),
-                              (50, 200, 255), 2)
+                cv2.rectangle(frame, (x-2, y-2), (x+tw+2, y+th+2),
+                              (240, 240, 240), 2)
             else:
-                cv2.rectangle(frame, (x, y), (x+thumb_w, y+thumb_h),
-                              (60, 60, 70), 1)
+                cv2.rectangle(frame, (x, y), (x+tw, y+th),
+                              (58, 58, 58), 1)
 
-            name = os.path.splitext(os.path.basename(filepath))[0][:10]
-            cv2.putText(frame, name, (x + 2, y + thumb_h + 12),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.25, (140, 140, 150), 1, cv2.LINE_AA)
+            name = os.path.splitext(os.path.basename(self.file_list[i]))[0][:10]
+            cv2.putText(frame, name, (x + 2, y + th + 12),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.25, (150, 150, 150), 1, cv2.LINE_AA)
+
+    def _draw_toast(self, frame):
+        if not self._toast_text or time.time() > self._toast_until:
+            return
+        h, w = frame.shape[:2]
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text = self._toast_text
+        (tw, th), _ = cv2.getTextSize(text, font, 0.5, 1)
+        pad = 14
+        dot = 22
+        bx2 = w - 20
+        bx1 = max(10, bx2 - tw - dot - pad * 2)
+        by1 = 20
+        by2 = by1 + th + pad * 2
+
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (bx1, by1), (bx2, by2), (20, 20, 20), -1)
+        cv2.rectangle(overlay, (bx1, by1), (bx2, by2), (58, 58, 58), 1)
+        cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
+
+        # success green (#3FB950) or error red, drawn as a status dot
+        color = (80, 185, 63) if self._toast_ok else (60, 60, 235)
+        cy = (by1 + by2) // 2
+        cv2.circle(frame, (bx1 + pad + 4, cy), 5, color, -1, cv2.LINE_AA)
+        cv2.putText(frame, text, (bx1 + pad + dot - 4, by2 - pad - 1),
+                    font, 0.5, (240, 240, 240), 1, cv2.LINE_AA)
 
     def _get_fade_mask(self, dw, dh):
         if self._fade_mask_size == (dw, dh) and self._fade_mask_cache is not None:
@@ -780,7 +1023,7 @@ class GestureMolWindow(QMainWindow):
         mol_h, mol_w = frame.shape[:2]
         cam_h, cam_w = self.cam_frame.shape[:2]
 
-        display_h = int(mol_h * 0.28)
+        display_h = int(mol_h * 0.34)
         display_w = int(cam_w * display_h / cam_h)
         cam_small = cv2.resize(self.cam_frame, (display_w, display_h))
 
@@ -840,7 +1083,7 @@ class GestureMolWindow(QMainWindow):
 
         has_cell = self.renderer.has_cell()
         self.settings_panel.cb_cell.setEnabled(has_cell)
-        self.settings_panel.cb_cell.setChecked(has_cell)
+        self.settings_panel.cb_cell.setChecked(self.renderer._cell_visible)
         self._update_structure_info()
 
     def dragEnterEvent(self, event):
@@ -872,19 +1115,42 @@ class GestureMolWindow(QMainWindow):
         self._closing = True
         self.timer.stop()
         self.cam_thread.stop()
-        self.cam_reader.stop()
-        try:
-            if self.cam and self.cam.isOpened():
-                self.cam.release()
-        except Exception:
-            pass
+        self.cam_reader.stop()   # releases the camera device
+        for job in getattr(self, "_render_jobs", []):
+            try:
+                job["proc"].terminate()
+            except Exception:
+                pass
         event.accept()
 
 
+def _expand_inputs(args):
+    """Turn CLI args into a concrete file list. Robust to a directory, an
+    unexpanded shell glob (e.g. when launched from a .app via launchd), or
+    plain file paths."""
+    import glob as _glob
+    files = []
+    for a in args:
+        if os.path.isdir(a):
+            files += sorted(_glob.glob(os.path.join(a, "*.xyz")))
+            files += sorted(_glob.glob(os.path.join(a, "*.cif")))
+        elif any(ch in a for ch in "*?[]"):
+            files += sorted(_glob.glob(a))
+        elif os.path.exists(a):
+            files.append(a)
+    # de-dup, preserve order
+    seen, out = set(), []
+    for f in files:
+        if f not in seen:
+            seen.add(f)
+            out.append(f)
+    return out
+
+
 def main():
-    file_list = sys.argv[1:] if len(sys.argv) > 1 else [
-        f for f in DEFAULT_FILES if os.path.exists(f)
-    ]
+    file_list = _expand_inputs(sys.argv[1:])
+    if not file_list:
+        file_list = [f for f in DEFAULT_FILES if os.path.exists(f)]
     if not file_list:
         print("No structure files found. Pass file paths as arguments.")
         return

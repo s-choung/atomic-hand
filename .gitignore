@@ -12,6 +12,11 @@ venv/
 # Build artifacts / bundles
 GestureMol.app/
 *.icns
+build/
+dist/
+*.app/
+# generated launcher (created by install.command)
+Atomic Hand.command
 
 # Local tooling / scratch
 .claude/

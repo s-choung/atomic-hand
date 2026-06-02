@@ -23,6 +23,15 @@ def qimage_to_bgr(qimg):
     return arr[:, :, 2::-1].copy()
 
 
+def qimage_to_bgra(qimg):
+    """RGBA QImage -> BGRA uint8 array (keeps alpha, ready for cv2.imwrite PNG)."""
+    qimg = qimg.convertToFormat(qimg.Format.Format_RGBA8888)
+    w, h = qimg.width(), qimg.height()
+    ptr = qimg.constBits()
+    arr = np.frombuffer(ptr, dtype=np.uint8).reshape((h, w, 4))
+    return arr[:, :, [2, 1, 0, 3]].copy()
+
+
 class MoleculeRenderer:
     STYLES = ["ball_stick", "spacefill", "wireframe"]
     STYLE_LABELS = {
@@ -68,21 +77,39 @@ class MoleculeRenderer:
                 cell_matrix = np.array(data.cell.matrix)
                 vol = abs(np.linalg.det(cell_matrix[:3, :3]))
                 if vol > 1.0:
-                    self._has_cell = True
-                    self._cell_visible = True
-                    data.cell.vis.enabled = True
-                else:
-                    data.cell.vis.enabled = False
+                    self._has_cell = True   # a cell exists -> toggle stays available
+                # default: PBC box hidden (cleaner). Toggle "Show Unit Cell" to show it.
+                data.cell.vis.enabled = False
         except Exception:
             pass
 
         self.vp = Viewport(type=Viewport.Type.Perspective)
         self.vp.zoom_all()
+        self._init_camera_from_viewport()   # seeds fov + baseline angles
 
-        self._init_camera_from_viewport()
-        self.distance *= 1.3
-        right, up, _ = self.get_camera_vectors()
-        self.center -= up * self.distance * 0.06
+        # Frame the MOLECULE itself, not the (often huge) simulation cell, so the
+        # structure is large and centered. Default to a diagonal 3/4 perspective
+        # with the molecule nudged slightly left of center.
+        try:
+            positions = np.asarray(data.particles.positions, dtype=float)
+        except Exception:
+            positions = np.zeros((0, 3))
+        if len(positions) > 0:
+            centroid = positions.mean(axis=0)
+            radius = float(np.linalg.norm(positions - centroid, axis=1).max())
+        else:
+            centroid = np.zeros(3)
+            radius = 5.0
+        radius = max(radius, 1.0)
+
+        self.center = centroid.copy()
+        self.fov = float(self.vp.fov)
+        self.distance = radius / max(math.tan(self.fov / 2.0), 1e-3) * 1.9  # 1.9 = margin
+        self.elevation = 20.0
+        self.azimuth = -55.0
+        self._update_camera()
+        right, _up, _ = self.get_camera_vectors()
+        self.center += right * radius * 0.32   # shift object slightly left
 
         self.renderer = TachyonRenderer()
         self.renderer.antialiasing_samples = 2
@@ -143,12 +170,13 @@ class MoleculeRenderer:
 
     def set_quality(self, high):
         if high:
-            self.renderer.antialiasing_samples = 4
+            self.renderer.antialiasing_samples = 3
             self.renderer.ambient_occlusion = True
             self.renderer.ambient_occlusion_brightness = 0.65
             self.renderer.shadows = False
         else:
-            self.renderer.antialiasing_samples = 2
+            # interactive: cheapest Tachyon settings (no AA/AO/shadows)
+            self.renderer.antialiasing_samples = 1
             self.renderer.ambient_occlusion = False
             self.renderer.shadows = False
 
@@ -183,7 +211,22 @@ class MoleculeRenderer:
         self.vp.camera_dir = tuple(direction)
         self.vp.fov = self.fov
 
+    def _ensure_solo_in_scene(self):
+        """OVITO viewports render the WHOLE scene. Guarantee that only this
+        pipeline is in the scene before we render, so multiple structures
+        (e.g. during thumbnail generation) never overlap in one image."""
+        try:
+            from ovito import scene
+            for p in list(scene.pipelines):
+                if p is not self.pipeline:
+                    p.remove_from_scene()
+            if self.pipeline not in list(scene.pipelines):
+                self.pipeline.add_to_scene()
+        except Exception:
+            pass
+
     def _warm_up(self):
+        self._ensure_solo_in_scene()
         self.vp.render_image(size=(100, 75), renderer=self.renderer)
 
     def _apply_style(self):
@@ -214,6 +257,7 @@ class MoleculeRenderer:
                 bvis.enabled = True
 
     def render(self, width=800, height=600):
+        self._ensure_solo_in_scene()
         self._update_camera()
         try:
             qimg = self.vp.render_image(size=(width, height), renderer=self.renderer)
@@ -224,6 +268,19 @@ class MoleculeRenderer:
             if hasattr(self, '_last_good_render') and self._last_good_render is not None:
                 return cv2.resize(self._last_good_render, (width, height))
             return np.zeros((height, width, 3), dtype=np.uint8)
+
+    def render_hq_rgba(self, width=2400, height=1800, aa=24, ao=True, shadows=True):
+        """High-quality Tachyon render with a TRANSPARENT background.
+        Returns a BGRA uint8 array suitable for cv2.imwrite('*.png', ...)."""
+        self._ensure_solo_in_scene()
+        self._update_camera()
+        hq = TachyonRenderer()
+        hq.antialiasing_samples = int(aa)
+        hq.ambient_occlusion = bool(ao)
+        hq.ambient_occlusion_brightness = 0.8
+        hq.shadows = bool(shadows)
+        qimg = self.vp.render_image(size=(width, height), renderer=hq, alpha=True)
+        return qimage_to_bgra(qimg)
 
     def rotate(self, d_azimuth, d_elevation):
         self.azimuth += d_azimuth
