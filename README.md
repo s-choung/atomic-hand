@@ -1,8 +1,10 @@
 # Atomic Hand
 
-> Rotate, zoom, and flip through 3D molecules with your bare hands — no mouse, no keyboard. Just a webcam.
+> Rotate, zoom, and switch 3D molecules with your bare hands. No mouse, no keyboard. Just a webcam.
 
-**Atomic Hand** is a hand-gesture molecular viewer for macOS. It pairs [MediaPipe](https://developers.google.com/mediapipe) hand tracking with [OVITO](https://www.ovito.org/)'s Tachyon ray tracer, so you can manipulate atomic structures in real time using only gestures in front of your laptop camera.
+**Atomic Hand** is a hand-gesture molecular viewer. It pairs [MediaPipe](https://developers.google.com/mediapipe) hand tracking with [OVITO](https://www.ovito.org/)'s Tachyon ray tracer, so you can manipulate atomic structures in real time using only gestures in front of your laptop camera.
+
+Built and used on **macOS**. The dependency + rendering core is also **CI-tested on Windows** (the GUI/camera path on Windows is still experimental, see [Platform support](#platform-support)).
 
 ![Atomic Hand demo](docs/media/atomichand_poster.jpg)
 
@@ -10,108 +12,123 @@
 
 ## Demos
 
-| | |
+| Clip | File |
 |---|---|
-| **Inspiration → reality** — Minority Report (left) and Atomic Hand controlling molecules by hand (right), side by side | [`docs/media/combined_demo.mp4`](docs/media/combined_demo.mp4) |
-| **Atomic Hand in action** — rotating and switching molecules by hand | [`docs/media/AtomicHand_demo_compressed.mp4`](docs/media/AtomicHand_demo_compressed.mp4) |
-| **Minority-Report-style hologram** — the inspiration | [`docs/media/minority_report_hologram.mp4`](docs/media/minority_report_hologram.mp4) |
+| Inspiration to reality: Minority Report (left) + Atomic Hand (right), side by side | [`docs/media/combined_demo.mp4`](docs/media/combined_demo.mp4) |
+| Atomic Hand in action | [`docs/media/AtomicHand_demo_compressed.mp4`](docs/media/AtomicHand_demo_compressed.mp4) |
 
-The combined clip plays on the [landing page](https://atomic-hand.schoung.com).
+## Install
 
----
+The fastest path is one line in your terminal. It installs Miniconda if you don't have it, creates an isolated environment, installs everything, and drops a launcher on your Desktop.
 
-## Features
+**macOS**
+```bash
+curl -fsSL https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.command | bash
+```
 
-- **Real-time hand tracking** — control the camera with open-hand, fist, and two-hand gestures
-- **High-quality rendering** — OVITO Tachyon CPU ray tracing with ambient occlusion on idle
-- **Multiple render styles** — ball & stick, space filling, wireframe
-- **Auto bond detection** — van der Waals based bond generation
-- **Mouse + keyboard fallback** — drag to rotate, scroll to zoom, arrows to switch
-- **HQ export** — one gesture renders a 1920×1440 PNG to your Desktop
+**Windows** (PowerShell)
+```powershell
+irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | iex
+```
+
+**Using Claude Code or Codex?** Just ask it: `"clone https://github.com/s-choung/atomic-hand and install it"`, and let it run the steps.
+
+After installing, double-click the generated **Atomic Hand** launcher (on your Desktop) and grant camera permission when asked. Snapshots are saved to `~/Desktop/atomic-hand/`.
+
+<details>
+<summary>Manual install</summary>
+
+Prereqs: `git` and `conda` (Miniconda is fine). On macOS without git: `xcode-select --install`.
+
+```bash
+git clone https://github.com/s-choung/atomic-hand.git
+cd atomic-hand
+conda create -n atomic-hand python=3.11 -y
+conda activate atomic-hand
+pip install ovito                        # install OVITO first (it brings its own Qt)
+pip install mediapipe==0.10.14 opencv-python PySide6 numpy
+python src/app_window.py structures      # the app globs the folder itself
+```
+</details>
 
 ## Gestures
 
 | Gesture | Action |
 |---|---|
-| Open hand + move | Rotate |
-| Wrist twist | Rotate (azimuth) |
-| Two hands spread / pinch | Zoom in / out |
-| Fist | Pause |
-| Fist + swipe L/R | Switch structure |
-| Mouse drag | Rotate |
-| Mouse scroll | Zoom |
-| Arrow keys (left / right) | Switch structure |
-| `S` key | Toggle settings panel |
+| 🖐️ Open hand + move | Rotate |
+| 🤚 Wrist twist | Spin (azimuth) |
+| 👐 Two hands spread / pinch | Zoom in / out |
+| 👉 Swipe left / right | Previous / next structure |
+| ✊ Fist | Pause tracking |
+| 👍 Thumbs up | Save a transparent HQ snapshot (toggle in panel) |
+| 🖱️ Left-drag / right-drag | Rotate / pan |
+| Scroll, arrow keys, click a gallery thumbnail | Zoom / switch structure |
+| `S` | Toggle the settings panel |
 
-## Install
+## Features
 
-> **⚡ Using Claude Code or Codex?** Just give it this prompt in a terminal: **`"clone the repo, set up the environment, install everything, and launch the demo"`** and it takes care of the rest. Skip the manual steps below.
-
-**Prerequisites:** macOS with `git` and `conda` installed.
-
-- No `conda`? Install [Miniconda](https://docs.conda.io/projects/miniconda/en/latest/).
-- No `git`? Run `xcode-select --install`.
-
-Tested with Python 3.11 (conda).
-
-```bash
-git clone https://github.com/s-choung/atomic-hand.git
-cd atomic-hand
-
-# create environment
-conda create -n atomic-hand python=3.11
-conda activate atomic-hand
-
-pip install ovito mediapipe==0.10.14 opencv-python PySide6 numpy
-```
-
-> **Note:** OVITO bundles its own PySide6. If you hit a Qt conflict, install `ovito` first and let it pull its dependencies.
+- **Real-time hand tracking** (MediaPipe) for rotate / zoom / swipe / pause.
+- **Background HQ render** that never freezes the live view: a thumbs-up (or the HQ button) renders a **transparent-background PNG** in a separate process. Quality presets (Fast to Ultra) and a chosen save folder.
+- **OVITO Tachyon** rendering with ball-and-stick / space-filling / wireframe styles, automatic van-der-Waals bonds, optional unit-cell box.
+- Mouse + keyboard fallback, drag-and-drop or Open File to load structures, clickable thumbnail gallery, camera on/off toggle.
+- Clean diagonal default view, framed to the molecule rather than the simulation cell.
 
 ## Run
 
 ```bash
-# launch with the bundled demo molecules
-python src/app_window.py structures/*.xyz
-
-# or a specific structure
-python src/app_window.py structures/C60.xyz
+conda activate atomic-hand
+python src/app_window.py structures            # all bundled molecules
+python src/app_window.py structures/C60.xyz    # a specific file
 ```
 
-Grant camera permission when macOS asks. Hold an open hand in front of the camera and move it to rotate.
+Hold an open hand in front of the camera and move it to rotate. Thumbs-up to save.
+
+## Platform support
+
+| Platform | Status |
+|---|---|
+| macOS (Apple Silicon / Intel) | Primary platform, built and used here. |
+| Windows | Dependencies + rendering + background save are **CI-tested** on `windows-latest` ([workflow](.github/workflows/windows-test.yml), [smoke test](tests/smoke_test.py)). The GUI window, camera, and gestures are not yet confirmed by a human on Windows, and `install.ps1` is a draft. Try it and please report back. |
+| Linux | Same stack should work; untested. |
 
 ## Architecture
 
 ```
-CameraReaderThread  -> grab frames at max speed, drain buffer
+CameraReaderThread  -> grab frames, drain buffer, own the camera device
 MediaPipeThread     -> latest frame -> MediaPipe -> gesture engine
-MainThread          -> QTimer 16 ms: consume gesture, Tachyon render, overlay
+MainThread (QTimer) -> consume gesture, Tachyon render (low-res while moving), overlays
+hq_render.py        -> separate process: full-quality transparent PNG, off the UI thread
 ```
 
-- **`src/app_window.py`** — main app (PySide6 + threaded camera)
-- **`src/gesture_engine_v2.py`** — gesture classification (rotate, zoom, swipe, wrist twist)
-- **`src/molecule_renderer.py`** — OVITO Tachyon wrapper (camera, styles, bonds)
-- **`structures/`** — demo molecules (C60, ethanol, pyrrole, water, …)
+- **`src/app_window.py`** main app (PySide6 + threaded camera)
+- **`src/gesture_engine_v2.py`** gesture classification (rotate, zoom, swipe, wrist twist, thumbs-up)
+- **`src/molecule_renderer.py`** OVITO Tachyon wrapper (camera, styles, bonds)
+- **`src/hq_render.py`** standalone high-quality renderer
+- **`structures/`** demo molecules (`.xyz`)
+- **`install.command` / `install.ps1`** one-click installers
+- **`tests/smoke_test.py`** headless import + render check (run in CI)
 
 ## Demo molecules
 
-`C60`, `C60_buckyball`, `ethanol`, `ethane`, `acetaldehyde`, `glyoxal`, `formic_acid`, `pyrrole`, `water` — all in `structures/` as `.xyz`. Drop your own `.xyz` files in there or open them from the settings panel (`S`).
+`C60`, `C60_buckyball`, `ethanol`, `ethane`, `acetaldehyde`, `glyoxal`, `formic_acid`, `pyrrole`, `water`, all in `structures/` as `.xyz`. Drop your own `.xyz` onto the window, or use **Open File** in the settings panel (`S`).
 
 ## Performance notes
 
-- Tachyon is **CPU-only**; the GPU (Metal) is not used for rendering.
-- AA=2 is the sweet spot (~26 ms/frame). On an 8 GB M2 Air, close heavy apps for smooth tracking — swap pressure hurts more than CPU.
+- Tachyon is **CPU-only**. While interacting, the molecule renders at reduced resolution (then upscaled) and snaps to full quality when you stop moving.
+- The background HQ render runs at low priority with capped threads so the live view stays responsive.
+- On an 8 GB machine, close heavy apps; swap pressure hurts more than CPU. Turn the camera off (panel button) when you only want to view.
 
 ## Status & limitations
 
-Atomic Hand is an **early prototype**. The core viewing gestures (rotate, zoom, switch, pause) are solid, but advanced editing — e.g. **dragging and dropping individual atoms** — is still rough and may not behave reliably yet. Treat it as a fun, experimental demo rather than a production modeling tool.
+Atomic Hand is an **early prototype (v1.3)**, vibe-coded for fun. Viewing gestures are solid; hands-on atom editing is experimental. The native stack pins some older versions (e.g. `mediapipe==0.10.14`), so stick to the install steps.
 
-It also leans on a fairly heavy native stack (OVITO + MediaPipe + PySide6). Because some of these pin **older versions** (e.g. `mediapipe==0.10.14`), newer Python / library versions can break the environment — stick to the versions in the install steps above.
+It is **100% open source** (MIT). No telemetry, no network calls: the app opens your webcam locally and renders on your machine. Read the [source](src/) before you run it.
 
 ## Roadmap
 
-- Higher-fidelity, GPU-accelerated rendering by driving **[Blender](https://www.blender.org/)** (e.g. via its `io_mesh_atomic` add-on) instead of the CPU Tachyon ray tracer
-- More stable atom editing (drag & drop, bond editing)
-- A lightweight browser demo (camera + hand tracking fully client-side)
+- GPU-accelerated rendering via **[Blender](https://www.blender.org/)** (`io_mesh_atomic`) beyond CPU Tachyon
+- Stable atom editing (drag & drop, bonds)
+- A browser demo (camera + hand tracking fully client-side)
 
 ## License
 

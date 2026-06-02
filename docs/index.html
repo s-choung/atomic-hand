@@ -186,7 +186,7 @@
     <h1 id="t-h1">Atomic Hands</h1>
     <p class="lede" id="t-lede">Atomic Hand turns your laptop camera into a controller. Rotate, zoom, and flip through 3D molecular structures in real time, with no mouse and no keyboard. It's a 3D molecular-structure visualizer.</p>
     <div class="cta">
-      <a class="btn" id="t-cta-install" href="#install">Install on macOS</a>
+      <a class="btn" id="t-cta-install" href="#install">Install</a>
       <a class="btn ghost" id="t-cta-source" href="https://github.com/s-choung/atomic-hand">View source <span class="arrow">&#8599;</span></a>
     </div>
   </div>
@@ -216,7 +216,7 @@
       <div class="gcard"><div class="n">02</div><b id="t-g2b">🤚 Wrist twist</b><span id="t-g2s">Spin around the vertical axis</span></div>
       <div class="gcard"><div class="n">03</div><b id="t-g3b">🤏 Two hands spread / pinch</b><span id="t-g3s">Zoom in and out</span></div>
       <div class="gcard"><div class="n">04</div><b id="t-g4b">✊ Fist</b><span id="t-g4s">Pause tracking</span></div>
-      <div class="gcard"><div class="n">05</div><b id="t-g5b">👊 Fist + swipe left / right</b><span id="t-g5s">Switch to next structure</span></div>
+      <div class="gcard"><div class="n">05</div><b id="t-g5b">👉 Swipe left / right</b><span id="t-g5s">Previous / next structure</span></div>
       <div class="gcard"><div class="n">06</div><b id="t-g6b">🖱️ Mouse / keyboard</b><span id="t-g6s">Drag, scroll, arrows as fallback</span></div>
     </div>
   </div>
@@ -225,31 +225,23 @@
 <section id="install">
   <div class="wrap">
     <div class="label" id="t-i-label">Get started</div>
-    <h2 id="t-i-h2">Install on your MacBook</h2>
+    <h2 id="t-i-h2">Install in one line</h2>
     <div class="cc-callout">
       <span class="cc-badge" id="t-cc-badge">Fastest</span>
       <span class="cc-txt" id="t-cc-txt"><strong>Using Claude Code or Codex?</strong> Just give it this prompt in a terminal: <code>"clone the repo, set up the environment, install everything, and launch the demo"</code> and it takes care of the rest!</span>
     </div>
-    <p class="section-sub" id="t-i-sub1" style="margin-bottom:16px">Or do it manually. Copy, paste, run. Tested with Python 3.11 on macOS. Grant camera permission when prompted.</p>
-    <p class="section-sub" id="t-i-sub2"><strong style="color:var(--void);font-weight:600">Prerequisites:</strong> macOS with <code style="font-family:ui-monospace,Menlo,monospace;font-size:0.9em">git</code> and <code style="font-family:ui-monospace,Menlo,monospace;font-size:0.9em">conda</code>. No conda? Install <a href="https://docs.conda.io/projects/miniconda/en/latest/" style="color:var(--void)">Miniconda</a>. No git? Run <code style="font-family:ui-monospace,Menlo,monospace;font-size:0.9em">xcode-select --install</code> first.</p>
+    <p class="section-sub" id="t-i-sub1" style="margin-bottom:16px">One line in your terminal sets up everything: it installs Miniconda if needed, creates an isolated environment, installs the dependencies, and drops a launcher on your Desktop. Grant camera permission when the app first opens.</p>
     <div class="codeblock">
       <button class="copy-btn" onclick="copyInstall(this)">Copy</button>
-      <pre id="installcmd"><span class="cmt"># 1. clone</span>
-git clone https://github.com/s-choung/atomic-hand.git
-cd atomic-hand
+      <pre id="installcmd"><span class="cmt"># macOS</span>
+curl -fsSL https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.command | bash
 
-<span class="cmt"># 2. environment (Python 3.11)</span>
-conda create -n atomic-hand python=3.11 -y
-conda activate atomic-hand
-
-<span class="cmt"># 3. dependencies</span>
-pip install ovito mediapipe==0.10.14 opencv-python PySide6 numpy
-
-<span class="cmt"># 4. run with the bundled demo molecules</span>
-python src/app_window.py structures/*.xyz</pre>
+<span class="cmt"># Windows (PowerShell)</span>
+irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | iex</pre>
     </div>
-    <p class="install-note" id="t-i-win"><strong style="color:var(--void);font-weight:600">Windows / Linux:</strong> not officially supported in v1. The app is built and tested on macOS, and a few helpers (camera auto-detection, opening the rendered image) are mac-only, so it would need small tweaks to run elsewhere.</p>
-    <p class="install-note" id="t-i-note">Rendering is powered by <a href="https://www.ovito.org/">OVITO</a>'s Tachyon ray tracer, which bundles its own Qt/PySide6. Install <code>ovito</code> first and let it pull its dependencies to avoid Qt conflicts.</p>
+    <p class="section-sub" id="t-i-sub2"><strong style="color:var(--void);font-weight:600">You just need git.</strong> The installer handles Python and conda for you. On macOS without git, run <code style="font-family:ui-monospace,Menlo,monospace;font-size:0.9em">xcode-select --install</code>; on Windows, install <a href="https://git-scm.com" style="color:var(--void)">Git for Windows</a>. Prefer manual steps? See the <a href="https://github.com/s-choung/atomic-hand#install" style="color:var(--void)">README</a>.</p>
+    <p class="install-note" id="t-i-win"><strong style="color:var(--void);font-weight:600">Windows:</strong> dependencies and rendering are continuously tested on Windows via CI, but the on-screen window, camera and gestures aren't confirmed there yet, so treat Windows as experimental. macOS is the primary, fully-used platform.</p>
+    <p class="install-note" id="t-i-note">Rendering is powered by <a href="https://www.ovito.org/">OVITO</a>'s Tachyon ray tracer, which bundles its own Qt/PySide6. The installer installs <code>ovito</code> first to avoid Qt conflicts.</p>
   </div>
 </section>
 
@@ -263,7 +255,7 @@ python src/app_window.py structures/*.xyz</pre>
     </div>
     <div class="callout">
       <b id="t-c2b">It's still v1</b>
-      <p id="t-c2p">A rough first release that only runs properly on macOS. Stick to the versions in the install steps above.</p>
+      <p id="t-c2p">A rough first release. macOS is the main, fully-used platform; Windows is CI-tested but experimental. Stick to the versions the installer pins.</p>
     </div>
   </div>
 </section>
@@ -304,7 +296,7 @@ python src/app_window.py structures/*.xyz</pre>
     't-nav-install': '설치',
     't-h1': 'Atomic Hands',
     't-lede': 'Atomic Hand는 노트북 카메라를 컨트롤러로 바꿔줍니다. 마우스도 키보드도 없이, 손동작만으로 3D 분자 구조를 실시간으로 돌리고 키우고 넘겨봅니다. 3D 분자 구조 visualizer입니다.',
-    't-cta-install': 'macOS에 설치',
+    't-cta-install': '설치하기',
     't-cta-source': '소스 보기',
     't-demos-label': '보기',
     't-demos-h2': 'Atomic Hand 소개',
@@ -321,24 +313,24 @@ python src/app_window.py structures/*.xyz</pre>
     't-g3s': '확대·축소',
     't-g4b': '✊ 주먹',
     't-g4s': '추적 일시정지',
-    't-g5b': '👊 주먹 + 좌우 스와이프',
-    't-g5s': '다음 구조로 전환',
+    't-g5b': '👉 좌우 스와이프',
+    't-g5s': '이전 / 다음 구조',
     't-g6b': '🖱️ 마우스 / 키보드',
     't-g6s': '드래그·스크롤·화살표로 대체',
     't-i-label': '시작하기',
-    't-i-h2': '맥북에 설치하기',
+    't-i-h2': '한 줄로 설치',
     't-cc-badge': '가장 빠름',
     't-cc-txt': '<strong>Claude Code나 Codex 쓰세요?</strong> 터미널에 <code>"저장소를 받고, 환경을 만들고, 필요한 걸 다 깔고, 데모 켜봐"</code> 라고 프롬프트만 넣으면 알아서 다 해줍니다!',
-    't-i-sub1': '아니면 직접 해도 됩니다. 복사, 붙여넣기, 실행. macOS의 Python 3.11에서 테스트했습니다. 권한을 물어보면 카메라를 허용해 주세요.',
-    't-i-sub2': '<strong style="color:var(--void);font-weight:600">준비물:</strong> git과 conda가 설치된 macOS. conda가 없으면 <a href="https://docs.conda.io/projects/miniconda/en/latest/" style="color:var(--void)">Miniconda</a>를 설치하세요. git이 없으면 먼저 <code style="font-family:ui-monospace,Menlo,monospace;font-size:0.9em">xcode-select --install</code>을 실행하세요.',
-    't-i-win': '<strong style="color:var(--void);font-weight:600">Windows / Linux:</strong> v1에서는 공식 지원하지 않습니다. macOS에서 만들고 테스트했고, 카메라 자동 인식이나 렌더 이미지 열기 같은 일부 기능이 맥 전용이라, 다른 OS에서는 약간 손봐야 돌아갑니다.',
-    't-i-note': '렌더링은 <a href="https://www.ovito.org/">OVITO</a>의 Tachyon 레이트레이서가 담당합니다. 자체 Qt/PySide6를 포함하고 있으니, <code>ovito</code>를 먼저 설치해 의존성을 끌어오게 하면 Qt 충돌을 피할 수 있습니다.',
+    't-i-sub1': '터미널에 한 줄이면 끝납니다. 미니콘다가 없으면 자동 설치하고, 독립 환경을 만들고, 의존성을 깔고, 데스크톱에 실행 런처까지 만들어 줍니다. 앱이 처음 열릴 때 카메라를 허용해 주세요.',
+    't-i-sub2': '<strong style="color:var(--void);font-weight:600">git만 미리 있으면 됩니다.</strong> Python과 conda는 설치 스크립트가 알아서 합니다. macOS에 git이 없으면 <code style="font-family:ui-monospace,Menlo,monospace;font-size:0.9em">xcode-select --install</code>, Windows는 <a href="https://git-scm.com" style="color:var(--void)">Git for Windows</a>를 설치하세요. 수동 설치는 <a href="https://github.com/s-choung/atomic-hand#install" style="color:var(--void)">README</a> 참고.',
+    't-i-win': '<strong style="color:var(--void);font-weight:600">Windows:</strong> 의존성과 렌더링은 CI로 Windows에서 계속 테스트하고 있어요. 다만 화면 창·카메라·제스처는 아직 Windows에서 확인 전이라 실험적입니다. macOS가 주력(완전 사용) 플랫폼이에요.',
+    't-i-note': '렌더링은 <a href="https://www.ovito.org/">OVITO</a>의 Tachyon 레이트레이서가 담당합니다. 자체 Qt/PySide6를 포함하고 있어서, 설치 스크립트가 <code>ovito</code>를 먼저 깔아 Qt 충돌을 피합니다.',
     't-n-label': '알아두기',
     't-n-h2': '아직 초기 프로토타입입니다',
     't-c1b': '전부 오픈소스라 안심해도 돼요',
     't-c1p': '<a href="https://github.com/s-choung/atomic-hand" style="color:var(--void)">GitHub</a>에 MIT로 다 공개돼 있고, 텔레메트리도 네트워크 통신도 없어요. 못 믿겠으면 소스를 직접 읽어보거나, 아무 LLM에 붙여넣고 "이거 안전해?"라고 물어보세요.',
     't-c2b': '아직 v1이에요',
-    't-c2p': '거친 첫 공개 버전이고, macOS에서만 제대로 돌아갑니다. 설치 단계에 적힌 버전을 그대로 쓰세요.',
+    't-c2p': '거친 첫 공개 버전이에요. macOS가 주력이고, Windows는 CI로 테스트되지만 실험적입니다. 설치 스크립트가 고정한 버전을 그대로 쓰세요.',
     't-r-label': '다음 계획',
     't-r-h2': '로드맵',
     't-r1b': 'Blender 렌더링',
