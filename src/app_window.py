@@ -424,6 +424,8 @@ class MolView(QLabel):
 
 
 def find_macbook_camera():
+    if sys.platform != "darwin":
+        return [0, 1, 2]   # Windows/Linux: just try the default cameras
     has_iphone = False
     try:
         result = subprocess.run(
@@ -684,10 +686,13 @@ class GestureMolWindow(QMainWindow):
         try:
             with open(json_path, "w") as f:
                 json.dump(params, f)
+            popen_kw = dict(stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+            if sys.platform == "win32":
+                popen_kw["creationflags"] = subprocess.BELOW_NORMAL_PRIORITY_CLASS
+            else:
+                popen_kw["preexec_fn"] = lambda: os.nice(12)   # low priority (POSIX)
             proc = subprocess.Popen(
-                [sys.executable, self._hq_render_script, json_path],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                env=env, preexec_fn=lambda: os.nice(12))
+                [sys.executable, self._hq_render_script, json_path], **popen_kw)
         except Exception as e:
             self._set_toast(f"Render failed: {e}", ok=False)
             return
@@ -723,8 +728,18 @@ class GestureMolWindow(QMainWindow):
         self._toast_until = time.time() + secs
 
     def _on_open_render(self):
-        if hasattr(self, '_last_render_path') and os.path.exists(self._last_render_path):
-            subprocess.Popen(["open", self._last_render_path])
+        p = getattr(self, '_last_render_path', None)
+        if not (p and os.path.exists(p)):
+            return
+        try:
+            if sys.platform == "darwin":
+                subprocess.Popen(["open", p])
+            elif sys.platform.startswith("win"):
+                os.startfile(p)   # noqa: only exists on Windows
+            else:
+                subprocess.Popen(["xdg-open", p])
+        except Exception:
+            pass
 
     def _on_axes_toggled(self, state):
         self._show_axes = state == Qt.Checked.value

@@ -123,9 +123,15 @@ say "${GREEN}Done!${RESET}"
 echo "To start the app, double-click ${BOLD}Atomic Hand.command${RESET} (on your Desktop)."
 echo "Grant camera permission when macOS asks."
 echo
-printf "Launch Atomic Hand now? [Y/n] "
-read -r ans
-case "${ans:-Y}" in
-  [nN]*) echo "OK. Double-click the launcher whenever you're ready." ;;
-  *) say "Launching..."; conda activate "$ENV_NAME"; cd "$REPO_DIR"; exec python src/app_window.py structures ;;
-esac
+# Only prompt when run interactively (a TTY). When piped via `curl ... | bash`
+# there is no TTY, so just finish cleanly.
+if [ -t 0 ]; then
+  printf "Launch Atomic Hand now? [Y/n] "
+  read -r ans
+  case "${ans:-Y}" in
+    [nN]*) echo "OK. Double-click the launcher whenever you're ready." ;;
+    *) say "Launching..."; conda activate "$ENV_NAME"; cd "$REPO_DIR"; exec python src/app_window.py structures ;;
+  esac
+else
+  echo "Installed. Double-click 'Atomic Hand.command' on your Desktop to launch."
+fi
