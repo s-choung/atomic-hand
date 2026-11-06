@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Atomic Hand: try it in your browser</title>
+<meta name="description" content="Drop a structure file, allow the webcam, and rotate, zoom, and flip through molecules with your bare hands. Nothing leaves your browser." />
+<meta property="og:title" content="Atomic Hand Web" />
+<meta property="og:description" content="Control 3D molecules with your hands, in the browser. No install." />
+<meta property="og:image" content="media/atomichand_poster.jpg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"></script>
+<style>
+  :root {
+    --bg: #0b0b0f;
+    --panel: rgba(18, 18, 24, 0.86);
+    --border: rgba(255,255,255,0.12);
+    --text: #f1f1f1;
+    --muted: #9a9aa3;
+    --accent: #ffffff;
+    --font: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font); background: var(--bg); color: var(--text);
+    font-size: 17px; line-height: 1.45; overflow: hidden;
+    -webkit-font-smoothing: antialiased; word-break: keep-all;
+  }
+  a { color: inherit; }
+
+  #viewer { position: fixed; inset: 0; }
+
+  /* top bar */
+  .topbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 16px 20px;
+    background: linear-gradient(to bottom, rgba(11,11,15,0.9), rgba(11,11,15,0));
+    pointer-events: none;
+  }
+  .topbar > * { pointer-events: auto; }
+  .brand { font-weight: 600; letter-spacing: -0.02em; font-size: 20px; text-decoration: none; display: flex; gap: 8px; align-items: center; }
+  .brand span { color: var(--muted); font-weight: 500; font-size: 15px; }
+  .tools { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.08); color: var(--text);
+    border: 1px solid var(--border); border-radius: 9999px;
+    padding: 10px 18px; font: inherit; font-size: 16px; font-weight: 500;
+    cursor: pointer; text-decoration: none; backdrop-filter: blur(8px);
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255,255,255,0.16); }
+  .btn.primary { background: var(--accent); color: #000; border-color: var(--accent); }
+  .btn.primary:hover { background: #e4e4e4; }
+  .btn.on { border-color: #4ade80; color: #4ade80; }
+  .btn[disabled] { opacity: 0.45; cursor: default; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9999px; overflow: hidden; backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+  .seg button { background: transparent; border: 0; color: var(--muted); padding: 10px 15px; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; }
+  .seg button.active { background: var(--accent); color: #000; }
+
+  /* gallery */
+  .gallery {
+    position: fixed; left: 20px; top: 84px; z-index: 15;
+    display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 300px); overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .gallery::-webkit-scrollbar { display: none; }
+  .gallery button {
+    background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 15px; text-align: left;
+    cursor: pointer; backdrop-filter: blur(8px); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .gallery button.active { color: var(--text); border-color: rgba(255,255,255,0.4); }
+
+  /* camera PIP */
+  .pip {
+    position: fixed; right: 20px; bottom: 20px; z-index: 15;
+    width: min(440px, 38vw); aspect-ratio: 4/3; border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--border); background: #000; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    display: none;
+  }
+  .pip.show { display: block; }
+  .pip video, .pip canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .pip .tag {
+    position: absolute; left: 12px; top: 12px; font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+    background: rgba(0,0,0,0.55); padding: 5px 10px; border-radius: 9999px; color: #fff;
+  }
+  @media (max-width: 640px) { .pip { width: 200px; } }
+
+  /* status + guide */
+  .status {
+    position: fixed; left: 20px; bottom: 20px; z-index: 15;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; font-size: 16px; color: var(--muted); backdrop-filter: blur(8px);
+    max-width: 420px;
+  }
+  .status .g { color: var(--text); font-weight: 600; font-size: 26px; margin-bottom: 10px; letter-spacing: -0.01em; }
+  .status .g.live { color: #4ade80; }
+  .status .g em { font-style: normal; color: var(--muted); font-weight: 500; font-size: 15px; }
+  .status ul { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 18px; }
+  .status li { white-space: nowrap; }
+  @media (max-width: 640px) { .status { max-width: calc(100vw - 40px - 200px - 12px); font-size: 14px; } .status .g { font-size: 20px; } .status ul { grid-template-columns: 1fr; } }
+
+  /* drop overlay */
+  .drop {
+    position: fixed; inset: 0; z-index: 30; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(11,11,15,0.78); border: 2px dashed rgba(255,255,255,0.5); margin: 14px; border-radius: 12px;
+    font-size: 28px; font-weight: 600; pointer-events: none;
+  }
+  .drop.show { display: flex; }
+
+  /* intro card: sits over the molecule without hiding it */
+  .intro {
+    position: fixed; left: 50%; top: 96px; transform: translateX(-50%); z-index: 40;
+    width: min(560px, calc(100vw - 40px));
+  }
+  .intro.hide { display: none; }
+  .card {
+    background: rgba(21,21,27,0.92); border: 1px solid var(--border); border-radius: 14px;
+    padding: 24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+  }
+  .card h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .card p { color: var(--muted); margin-bottom: 16px; font-size: 16px; }
+  .card .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .card small { display: block; color: var(--muted); font-size: 14px; margin-top: 14px; }
+  .card small a { color: var(--text); }
+
+  .toast {
+    position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 35;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 9999px;
+    padding: 10px 20px; font-size: 16px; opacity: 0; transition: opacity .2s; pointer-events: none; backdrop-filter: blur(8px);
+  }
+  .toast.show { opacity: 1; }
+  .flash { position: fixed; inset: 0; z-index: 34; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .flash.on { opacity: 0.7; transition: none; }
+</style>
+</head>
+<body>
+
+<div id="viewer"></div>
+
+<div class="topbar">
+  <a class="brand" href="./">Atomic Hand <span>web</span></a>
+  <div class="tools">
+    <button class="btn primary" id="btnOpen">Open file</button>
+    <input type="file" id="fileInput" accept=".xyz,.cif,.pdb,.mol2,.sdf,.mol,.cube,.gro" multiple hidden />
+    <div class="seg" id="styleSeg">
+      <button data-style="bs" class="active">Ball &amp; stick</button>
+      <button data-style="sf">Spacefill</button>
+      <button data-style="wire">Wire</button>
+    </div>
+    <button class="btn" id="btnCam">📷 Camera</button>
+    <button class="btn" id="btnSnap" title="Save a transparent PNG (also: thumbs up)">👍 Snapshot</button>
+    <a class="btn" href="https://github.com/s-choung/atomic-hand">GitHub ↗</a>
+  </div>
+</div>
+
+<div class="gallery" id="gallery"></div>
+
+<div class="pip" id="pip">
+  <video id="cam" autoplay muted playsinline></video>
+  <canvas id="overlay"></canvas>
+  <div class="tag" id="camTag">CAMERA</div>
+</div>
+
+<div class="status" id="status">
+  <div class="g"><span id="gName">Camera off</span> <em id="gHint"></em></div>
+  <ul>
+    <li>🖐️ move: rotate</li>
+    <li>🤚 twist: spin</li>
+    <li>👐 spread: zoom</li>
+    <li>👉 swipe: next</li>
+    <li>✊ fist: pause</li>
+    <li>👍 thumb: save PNG</li>
+  </ul>
+</div>
+
+<div class="drop" id="drop">Drop structure files (xyz, cif, pdb, mol2, sdf)</div>
+<div class="toast" id="toast"></div>
+<div class="flash" id="flash"></div>
+
+<div class="intro" id="intro">
+  <div class="card">
+    <h1>Control this molecule with your hand</h1>
+    <p>Turn the camera on, hold an open hand up, and move it. Drop your own xyz, cif, or pdb file anywhere on the page. Everything runs locally in your browser. No file and no video leaves your machine.</p>
+    <div class="row">
+      <button class="btn primary" id="introStart">Start with camera</button>
+      <button class="btn" id="introNoCam">Mouse only</button>
+    </div>
+    <small>Want publication-quality OVITO ray-traced renders? That part needs the <a href="./#install">desktop app</a>. This page saves a WebGL PNG with a transparent background.</small>
+  </div>
+</div>
+
+<script type="module">
+  // ---------------------------------------------------------------
+  // 3Dmol viewer
+  // ---------------------------------------------------------------
+  const viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#0b0b0f', antialias: true });
+  const STYLES = {
+    bs:   { stick: { radius: 0.16 }, sphere: { scale: 0.28 } },
+    sf:   { sphere: { scale: 1.0 } },
+    wire: { line: { linewidth: 2 } },
+  };
+  let styleKey = 'bs';
+  let models = [];   // {name, data, fmt}
+  let current = -1;
+  // idle auto-spin until the user takes control (hand, mouse, or key)
+  let autoSpin = true;
+  function stopSpin() { if (!autoSpin) return; autoSpin = false; viewer.spin(false); }
+  document.getElementById('viewer').addEventListener('pointerdown', stopSpin);
+  document.getElementById('viewer').addEventListener('wheel', stopSpin, { passive: true });
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer;
+  function toast(msg, ms = 1800) {
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms);
+  }
+
+  function fmtFromName(name) {
+    const ext = name.split('.').pop().toLowerCase();
+    if (ext === 'mol') return 'sdf';
+    return ext;
+  }
+
+  function applyStyle() {
+    viewer.setStyle({}, STYLES[styleKey]);
+    viewer.render();
+  }
+
+  function show(i) {
+    if (!models.length) return;
+    current = (i + models.length) % models.length;
+    const m = models[current];
+    viewer.removeAllModels();
+    try {
+      viewer.addModel(m.data, m.fmt);
+    } catch (e) {
+      toast('Could not parse ' + m.name);
+      return;
+    }
+    applyStyle();
+    viewer.zoomTo();
+    viewer.rotate(-25, 'y'); viewer.rotate(20, 'x');
+    viewer.render();
+    if (autoSpin) viewer.spin('y', 0.4);
+    renderGallery();
+    document.title = 'Atomic Hand: ' + m.name;
+  }
+
+  function addModels(list, select = true) {
+    const start = models.length;
+    for (const m of list) models.push(m);
+    if (select && list.length) show(start);
+    else renderGallery();
+  }
+
+  function renderGallery() {
+    const g = document.getElementById('gallery');
+    g.innerHTML = '';
+    models.forEach((m, i) => {
+      const b = document.createElement('button');
+      b.textContent = m.name;
+      b.className = i === current ? 'active' : '';
+      b.onclick = () => show(i);
+      g.appendChild(b);
+    });
+  }
+
+  // style segment
+  document.querySelectorAll('#styleSeg button').forEach(b => {
+    b.onclick = () => {
+      styleKey = b.dataset.style;
+      document.querySelectorAll('#styleSeg button').forEach(x => x.classList.toggle('active', x === b));
+      applyStyle();
+    };
+  });
+
+  // ---------------------------------------------------------------
+  // file loading: drag & drop, open button
+  // ---------------------------------------------------------------
+  async function loadFiles(fileList) {
+    const out = [];
+    for (const f of fileList) {
+      const fmt = fmtFromName(f.name);
+      if (!STYLES && !fmt) continue;
+      const data = await f.text();
+      out.push({ name: f.name, data, fmt });
+    }
+    if (out.length) { addModels(out); toast('Loaded ' + out.map(m => m.name).join(', ')); }
+  }
+  const dropEl = document.getElementById('drop');
+  let dragDepth = 0;
+  window.addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; dropEl.classList.add('show'); });
+  window.addEventListener('dragleave', e => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; dropEl.classList.remove('show'); } });
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => {
+    e.preventDefault(); dragDepth = 0; dropEl.classList.remove('show');
+    loadFiles(e.dataTransfer.files);
+  });
+  const fileInput = document.getElementById('fileInput');
+  document.getElementById('btnOpen').onclick = () => fileInput.click();
+  fileInput.onchange = () => { loadFiles(fileInput.files); fileInput.value = ''; };
+
+  // bundled demos
+  const DEMOS = ['C60', 'ethanol', 'acetaldehyde', 'pyrrole', 'formic_acid', 'water'];
+  (async () => {
+    const list = [];
+    for (const n of DEMOS) {
+      try {
+        const r = await fetch('structures/' + n + '.xyz');
+        if (r.ok) list.push({ name: n, data: await r.text(), fmt: 'xyz' });
+      } catch (e) { /* offline or file:// */ }
+    }
+    addModels(list, current < 0);
+  })();
+
+  // keyboard
+  window.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') stopSpin();
+    if (e.key === 'ArrowRight') show(current + 1);
+    else if (e.key === 'ArrowLeft') show(current - 1);
+    else if (e.key === ' ') { e.preventDefault(); snapshot(); }
+  });
+
+  // ---------------------------------------------------------------
+  // snapshot (transparent PNG)
+  // ---------------------------------------------------------------
+  const flash = document.getElementById('flash');
+  function snapshot() {
+    if (current < 0) return;
+    viewer.setBackgroundColor(0x000000, 0);
+    viewer.render();
+    const uri = viewer.pngURI();
+    viewer.setBackgroundColor('#0b0b0f', 1);
+    viewer.render();
+    const a = document.createElement('a');
+    const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
+    a.download = 'AtomicHand_' + models[current].name.replace(/\.[^.]+$/, '') + '_' + ts + '.png';
+    a.href = uri; a.click();
+    flash.classList.add('on'); setTimeout(() => flash.classList.remove('on'), 60);
+    toast('Saved ' + a.download);
+  }
+  document.getElementById('btnSnap').onclick = snapshot;
+
+  // ---------------------------------------------------------------
+  // Gesture engine: a 1:1 port of src/gesture_engine_v2.py
+  // landmark x is mirrored so it matches the desktop app (cv2.flip).
+  // ---------------------------------------------------------------
+  class SmoothValue {
+    constructor(window = 1) { this.n = window; this.buf = []; }
+    update(v) { this.buf.push(v); if (this.buf.length > this.n) this.buf.shift(); return this.buf.reduce((a, b) => a + b, 0) / this.buf.length; }
+    reset() { this.buf = []; }
+  }
+  class SwipeDetector {
+    constructor(threshold = 0.05, timeWindow = 0.35) {
+      this.threshold = threshold; this.timeWindow = timeWindow; this.history = []; this.lastSwipe = 0; this.cooldown = 0.45;
+    }
+    update(x, t) { this.history.push([x, t]); if (this.history.length > 12) this.history.shift(); }
+    detect(t) {
+      if (t - this.lastSwipe < this.cooldown) return '';
+      if (this.history.length < 3) return '';
+      const recent = this.history.filter(([, tt]) => t - tt < this.timeWindow);
+      if (recent.length < 2) return '';
+      const dx = recent[recent.length - 1][0] - recent[0][0];
+      const dt = recent[recent.length - 1][1] - recent[0][1];
+      if (dt < 0.05) return '';
+      const v = dx / dt;
+      if (Math.abs(dx) > this.threshold && Math.abs(v) > 0.13) {
+        this.lastSwipe = t; this.history = [];
+        return dx > 0 ? 'LEFT' : 'RIGHT';
+      }
+      return '';
+    }
+    reset() { this.history = []; }
+  }
+  class GestureEngine {
+    constructor() {
+      this.state = 'IDLE';
+      this.prevPalmX = null; this.prevPalmY = null; this.prevAngle = null; this.prevTwoHandDist = null;
+      this.sdx = new SmoothValue(1); this.sdy = new SmoothValue(1); this.sang = new SmoothValue(1); this.szoom = new SmoothValue(1);
+      this.swipe = new SwipeDetector();
+      this.rotationSensitivity = 500; this.zoomSensitivity = 50; this.wristSensitivity = 120;
+    }
+    fingerExt(lm, tip, pip) { return lm[tip].y < lm[pip].y; }
+    thumbExt(lm) { return Math.abs(lm[4].x - lm[2].x) > Math.abs(lm[3].x - lm[2].x) * 0.8; }
+    classify(lm) {
+      const n = [this.thumbExt(lm), this.fingerExt(lm, 8, 6), this.fingerExt(lm, 12, 10), this.fingerExt(lm, 16, 14), this.fingerExt(lm, 20, 18)].filter(Boolean).length;
+      if (n <= 1) return 'FIST';
+      if (n >= 3) return 'OPEN';
+      return 'OTHER';
+    }
+    isThumbsUp(lm) {
+      const folded = !this.fingerExt(lm, 8, 6) && !this.fingerExt(lm, 12, 10) && !this.fingerExt(lm, 16, 14) && !this.fingerExt(lm, 20, 18);
+      if (!folded) return false;
+      return lm[4].y < lm[3].y && lm[3].y < lm[2].y && lm[4].y < lm[5].y - 0.04 && lm[4].y < lm[0].y - 0.06;
+    }
+    palm(lm) { return [(lm[0].x + lm[5].x + lm[17].x) / 3, (lm[0].y + lm[5].y + lm[17].y) / 3]; }
+    handSize(lm) {
+      const idx = [0, 5, 9, 13, 17];
+      const xs = idx.map(i => lm[i].x), ys = idx.map(i => lm[i].y);
+      return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    }
+    handAngle(lm) { return Math.atan2(lm[9].x - lm[0].x, -(lm[9].y - lm[0].y)); }
+    twoHandDist(a, b) { const p = this.palm(a), q = this.palm(b); return Math.hypot(p[0] - q[0], p[1] - q[1]); }
+
+    process(hands, now) {
+      const res = { gesture: 'IDLE', rot: [0, 0], zoom: 0, swipe: '' };
+      if (!hands || !hands.length) { this.resetAll(); return res; }
+      hands = hands.filter(h => this.handSize(h) > 0.08);
+      if (!hands.length) { this.resetAll(); return res; }
+
+      if (hands.length >= 2) {
+        const [a, b] = hands;
+        if (this.classify(a) === 'FIST' || this.classify(b) === 'FIST') {
+          this.prevTwoHandDist = null; this.state = 'PAUSED'; this.resetRot();
+          res.gesture = 'FIST'; return res;
+        }
+        const d = this.twoHandDist(a, b);
+        if (d < 0.15) { this.prevTwoHandDist = null; }
+        else {
+          let z = 0;
+          if (this.prevTwoHandDist !== null) z = this.szoom.update(d - this.prevTwoHandDist) * this.zoomSensitivity;
+          this.prevTwoHandDist = d; this.state = 'ZOOM'; this.resetRot();
+          res.gesture = 'ZOOM'; res.zoom = z; return res;
+        }
+      }
+
+      const lm = hands[0];
+      if (this.isThumbsUp(lm)) { this.state = 'PAUSED'; this.resetRot(); res.gesture = 'THUMBS_UP'; return res; }
+
+      const [px, py] = this.palm(lm);
+      this.swipe.update(px, now);
+      const sw = this.swipe.detect(now);
+      if (sw) { this.resetRot(); res.gesture = 'SWIPE_' + sw; res.swipe = sw; return res; }
+
+      const g = this.classify(lm);
+      res.gesture = g;
+      if (g === 'OPEN') {
+        const ang = this.handAngle(lm);
+        if (this.state === 'ROTATING' && this.prevPalmX !== null) {
+          const dx = this.sdx.update(px - this.prevPalmX);
+          const dy = this.sdy.update(py - this.prevPalmY);
+          let wrist = 0;
+          if (this.prevAngle !== null) {
+            const ra = ang - this.prevAngle;
+            if (Math.abs(ra) < 0.5) wrist = this.sang.update(ra) * this.wristSensitivity;
+          }
+          res.rot = [dx * this.rotationSensitivity + wrist, -dy * this.rotationSensitivity];
+        }
+        this.state = 'ROTATING'; this.prevPalmX = px; this.prevPalmY = py; this.prevAngle = ang;
+      } else if (g === 'FIST') {
+        this.state = 'PAUSED'; this.resetRot();
+      } else {
+        this.resetRot();
+      }
+      return res;
+    }
+    resetRot() { this.prevPalmX = this.prevPalmY = this.prevAngle = null; this.sdx.reset(); this.sdy.reset(); this.sang.reset(); }
+    resetAll() { this.resetRot(); this.prevTwoHandDist = null; this.szoom.reset(); this.swipe.reset(); }
+  }
+
+  // ---------------------------------------------------------------
+  // MediaPipe hand tracking (tasks-vision, runs in-browser)
+  // ---------------------------------------------------------------
+  const MP_VER = '0.10.14';
+  const pip = document.getElementById('pip');
+  const video = document.getElementById('cam');
+  const overlay = document.getElementById('overlay');
+  const octx = overlay.getContext('2d');
+  const gName = document.getElementById('gName');
+  const gHint = document.getElementById('gHint');
+  const btnCam = document.getElementById('btnCam');
+  const engine = new GestureEngine();
+  let landmarker = null, stream = null, running = false, lastVideoTime = -1, prevGesture = '';
+  const LABEL = { IDLE: 'No hand', OPEN: 'Rotating', FIST: 'Paused', ZOOM: 'Zooming', THUMBS_UP: 'Snapshot', SWIPE_LEFT: 'Previous', SWIPE_RIGHT: 'Next', OTHER: 'Hand' };
+  const CONN = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+
+  async function ensureLandmarker() {
+    if (landmarker) return landmarker;
+    gName.textContent = 'Loading hand model…';
+    const vision = await import(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/vision_bundle.mjs`);
+    const fileset = await vision.FilesetResolver.forVisionTasks(`https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}/wasm`);
+    const make = (delegate) => vision.HandLandmarker.createFromOptions(fileset, {
+      baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate },
+      runningMode: 'VIDEO', numHands: 2, minHandDetectionConfidence: 0.6, minTrackingConfidence: 0.5,
+    });
+    try { landmarker = await make('GPU'); } catch (e) { landmarker = await make('CPU'); }
+    return landmarker;
+  }
+
+  async function startCamera() {
+    try {
+      await ensureLandmarker();
+      stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
+    } catch (e) {
+      gName.textContent = 'Camera unavailable';
+      gHint.textContent = e && e.name === 'NotAllowedError' ? 'permission denied' : (e.message || '');
+      toast('Could not start camera. Check browser permission.');
+      return false;
+    }
+    video.srcObject = stream;
+    await video.play();
+    overlay.width = video.videoWidth || 640; overlay.height = video.videoHeight || 480;
+    pip.classList.add('show'); btnCam.classList.add('on'); btnCam.textContent = '📷 Camera on';
+    running = true; gName.textContent = 'No hand'; gHint.textContent = '';
+    requestAnimationFrame(loop);
+    return true;
+  }
+  function stopCamera() {
+    running = false;
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    video.srcObject = null;
+    pip.classList.remove('show'); btnCam.classList.remove('on'); btnCam.textContent = '📷 Camera';
+    gName.textContent = 'Camera off'; gHint.textContent = '';
+    engine.resetAll();
+  }
+  btnCam.onclick = () => running ? stopCamera() : startCamera();
+
+  function drawHands(hands) {
+    octx.clearRect(0, 0, overlay.width, overlay.height);
+    const W = overlay.width, H = overlay.height;
+    octx.lineWidth = 2; octx.strokeStyle = 'rgba(255,255,255,0.8)'; octx.fillStyle = '#4ade80';
+    for (const lm of hands) {
+      octx.beginPath();
+      for (const [a, b] of CONN) { octx.moveTo(lm[a].x * W, lm[a].y * H); octx.lineTo(lm[b].x * W, lm[b].y * H); }
+      octx.stroke();
+      for (const p of lm) { octx.beginPath(); octx.arc(p.x * W, p.y * H, 3, 0, Math.PI * 2); octx.fill(); }
+    }
+  }
+
+  function loop() {
+    if (!running) return;
+    if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      const r = landmarker.detectForVideo(video, performance.now());
+      const raw = r.landmarks || [];
+      drawHands(raw);
+      // mirror x so left/right match what the user sees in the PIP (desktop does cv2.flip)
+      const hands = raw.map(lm => lm.map(p => ({ x: 1 - p.x, y: p.y, z: p.z })));
+      const g = engine.process(hands, performance.now() / 1000);
+      applyGesture(g);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function applyGesture(g) {
+    if (current >= 0) {
+      const [daz, del] = g.rot;
+      if (g.gesture !== 'IDLE') stopSpin();
+      if (daz || del) { viewer.rotate(daz, 'y'); viewer.rotate(del, 'x'); viewer.render(); }
+      if (g.zoom) { const f = Math.max(0.5, Math.min(2.0, 1.0 - g.zoom * 0.3)); viewer.zoom(1 / f); viewer.render(); }
+      if (g.swipe === 'LEFT') show(current - 1);
+      else if (g.swipe === 'RIGHT') show(current + 1);
+      if (g.gesture === 'THUMBS_UP' && prevGesture !== 'THUMBS_UP') snapshot();
+    }
+    prevGesture = g.gesture;
+    gName.textContent = LABEL[g.gesture] || g.gesture;
+    gName.classList.toggle('live', g.gesture !== 'IDLE');
+  }
+
+  // ---------------------------------------------------------------
+  // intro card
+  // ---------------------------------------------------------------
+  const intro = document.getElementById('intro');
+  document.getElementById('introStart').onclick = async () => { intro.classList.add('hide'); await startCamera(); };
+  document.getElementById('introNoCam').onclick = () => intro.classList.add('hide');
+
+  window.addEventListener('resize', () => viewer.resize());
+</script>
+</body>
+</html>

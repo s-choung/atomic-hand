@@ -10,6 +10,8 @@ Built and used on **macOS**. The dependency + rendering core is also **CI-tested
 
 **Landing page & demo videos:** [atomic-hand.schoung.com](https://atomic-hand.schoung.com)
 
+**Try it in your browser, no install:** [atomic-hand.schoung.com/app.html](https://atomic-hand.schoung.com/app.html). Drop your own `.xyz` / `.cif` / `.pdb`, allow the webcam, and move your hand. Same gesture engine ported to JS (MediaPipe Tasks + 3Dmol.js), everything stays on your machine. The desktop app below adds OVITO Tachyon ray-traced renders.
+
 ## Demos
 
 | Clip | File |

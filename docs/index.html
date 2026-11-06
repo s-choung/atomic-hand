@@ -171,6 +171,7 @@
   <div class="wrap">
     <div class="brand">Atomic Hand</div>
     <div class="nav-links">
+      <a class="txt" id="t-nav-try" href="app.html">Try it</a>
       <a class="txt" id="t-nav-demos" href="#demos">Demos</a>
       <a class="txt" id="t-nav-gestures" href="#gestures">Gestures</a>
       <a class="txt" id="t-nav-install" href="#install">Install</a>
@@ -188,7 +189,8 @@
     <h1 id="t-h1">Atomic Hands</h1>
     <p class="lede" id="t-lede">Atomic Hand turns your laptop camera into a controller. Rotate, zoom, and flip through 3D molecular structures in real time, with no mouse and no keyboard. It's a 3D molecular-structure visualizer.</p>
     <div class="cta">
-      <a class="btn" id="t-cta-install" href="#install">Install</a>
+      <a class="btn" id="t-cta-try" href="app.html">Try in browser, no install</a>
+      <a class="btn ghost" id="t-cta-install" href="#install">Install desktop app</a>
       <a class="btn ghost" id="t-cta-source" href="https://github.com/s-choung/atomic-hand">View source <span class="arrow">&#8599;</span></a>
     </div>
   </div>
@@ -228,6 +230,7 @@
   <div class="wrap">
     <div class="label" id="t-i-label">Get started</div>
     <h2 id="t-i-h2">Install in one line</h2>
+    <p class="section-sub" id="t-i-try" style="margin-bottom:16px"><strong style="color:var(--void);font-weight:600">Just want to try it?</strong> <a href="app.html" style="color:var(--void)">Open the web version</a>: drop your own xyz, cif, or pdb file, allow the webcam, and move your hand. It runs entirely in your browser. The desktop app below adds the OVITO Tachyon ray-traced renders for publication figures.</p>
     <div class="cc-callout">
       <span class="cc-badge" id="t-cc-badge">Fastest</span>
       <span class="cc-txt" id="t-cc-txt"><strong>Using Claude Code or Codex?</strong> Just give it this prompt in a terminal: <code>"clone the repo, set up the environment, install everything, and launch the demo"</code> and it takes care of the rest!</span>
@@ -288,12 +291,14 @@ irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | ie
 
   // ---- KOR / EN toggle ----
   var I18N_KO = {
+    't-nav-try': '체험',
     't-nav-demos': '데모',
     't-nav-gestures': '제스처',
     't-nav-install': '설치',
     't-h1': 'Atomic Hands',
     't-lede': 'Atomic Hand는 노트북 카메라를 컨트롤러로 바꿔줍니다. 마우스도 키보드도 없이, 손동작만으로 3D 분자 구조를 실시간으로 돌리고 키우고 넘겨봅니다. 3D 분자 구조 visualizer입니다.',
-    't-cta-install': '설치하기',
+    't-cta-try': '설치 없이 브라우저에서 체험',
+    't-cta-install': '데스크톱 앱 설치',
     't-cta-source': '소스 보기',
     't-demos-label': '보기',
     't-demos-h2': 'Atomic Hand 소개',
@@ -301,7 +306,7 @@ irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | ie
     't-demos-cap': '<b style="display:inline">영감 &rarr; 현실.</b> 왼쪽이 마이너리티 리포트(2002), 오른쪽이 손으로 분자를 조작하는 Atomic Hand(2026).',
     't-g-label': '작동 방식',
     't-g-h2': '사용 방법',
-    't-g-sub': 'MediaPipe가 매 프레임 손의 21개 지점을 추적하고, 가벼운 엔진이 이걸 카메라 움직임으로 바꿉니다. 마우스·스크롤·화살표 키로도 조작할 수 있어요.',
+    't-g-sub': 'MediaPipe가 매 프레임 손의 21개 지점을 추적하고, 가벼운 엔진이 이걸 카메라 움직임으로 바꿉니다. 마우스, 스크롤, 화살표 키로도 조작할 수 있어요.',
     't-g1b': '🖐️ 손 펴고 이동',
     't-g1s': '구조를 회전',
     't-g2b': '🤚 손목 비틀기',
@@ -316,6 +321,7 @@ irm https://raw.githubusercontent.com/s-choung/atomic-hand/main/install.ps1 | ie
     't-g6s': '이전 / 다음 구조',
     't-i-label': '시작하기',
     't-i-h2': '한 줄로 설치',
+    't-i-try': '<strong style="color:var(--void);font-weight:600">일단 써보고 싶다면</strong> <a href="app.html" style="color:var(--void)">웹 버전</a>을 여세요. 자기 xyz, cif, pdb 파일을 드래그해서 넣고 웹캠을 허용한 뒤 손을 움직이면 됩니다. 전부 브라우저 안에서만 돌아갑니다. 아래 데스크톱 앱은 논문 그림용 OVITO Tachyon 레이트레이싱 렌더가 추가됩니다.',
     't-cc-badge': '가장 빠름',
     't-cc-txt': '<strong>Claude Code나 Codex 쓰세요?</strong> 터미널에 <code>"저장소를 받고, 환경을 만들고, 필요한 걸 다 깔고, 데모 켜봐"</code> 라고 프롬프트만 넣으면 알아서 다 해줍니다!',
     't-i-sub1': '터미널에 한 줄이면 끝납니다. 미니콘다가 없으면 자동 설치하고, 독립 환경을 만들고, 의존성을 깔고, 데스크톱에 실행 런처까지 만들어 줍니다. 앱이 처음 열릴 때 카메라를 허용해 주세요.',
