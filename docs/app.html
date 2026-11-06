@@ -50,7 +50,7 @@
     background: rgba(255,255,255,0.08); color: var(--text);
     border: 1px solid var(--border); border-radius: 9999px;
     padding: 10px 18px; font: inherit; font-size: 16px; font-weight: 500;
-    cursor: pointer; text-decoration: none; backdrop-filter: blur(8px);
+    cursor: pointer; text-decoration: none;
     white-space: nowrap;
   }
   .btn:hover { background: rgba(255,255,255,0.16); }
@@ -58,7 +58,7 @@
   .btn.primary:hover { background: #e4e4e4; }
   .btn.on { border-color: #4ade80; color: #4ade80; }
   .btn[disabled] { opacity: 0.45; cursor: default; }
-  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9999px; overflow: hidden; backdrop-filter: blur(8px); background: rgba(255,255,255,0.06); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9999px; overflow: hidden; background: rgba(255,255,255,0.06); }
   .seg button { background: transparent; border: 0; color: var(--muted); padding: 10px 15px; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; }
   .seg button.active { background: var(--accent); color: #000; }
 
@@ -72,7 +72,7 @@
   .gallery button {
     background: var(--panel); border: 1px solid var(--border); color: var(--muted);
     border-radius: 8px; padding: 9px 14px; font: inherit; font-size: 15px; text-align: left;
-    cursor: pointer; backdrop-filter: blur(8px); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    cursor: pointer; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .gallery button.active { color: var(--text); border-color: rgba(255,255,255,0.4); }
 
@@ -95,7 +95,7 @@
   .status {
     position: fixed; left: 20px; bottom: 20px; z-index: 15;
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
-    padding: 18px 20px; font-size: 16px; color: var(--muted); backdrop-filter: blur(8px);
+    padding: 18px 20px; font-size: 16px; color: var(--muted);
     max-width: 420px;
   }
   .status .g { color: var(--text); font-weight: 600; font-size: 26px; margin-bottom: 10px; letter-spacing: -0.01em; }
@@ -122,7 +122,7 @@
   .intro.hide { display: none; }
   .card {
     background: rgba(21,21,27,0.92); border: 1px solid var(--border); border-radius: 14px;
-    padding: 24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+    padding: 24px 26px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
   }
   .card h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
   .card p { color: var(--muted); margin-bottom: 16px; font-size: 16px; }
@@ -133,7 +133,7 @@
   .toast {
     position: fixed; top: 84px; left: 50%; transform: translateX(-50%); z-index: 35;
     background: var(--panel); border: 1px solid var(--border); border-radius: 9999px;
-    padding: 10px 20px; font-size: 16px; opacity: 0; transition: opacity .2s; pointer-events: none; backdrop-filter: blur(8px);
+    padding: 10px 20px; font-size: 16px; opacity: 0; transition: opacity .2s; pointer-events: none;
   }
   .toast.show { opacity: 1; }
   .flash { position: fixed; inset: 0; z-index: 34; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -200,7 +200,11 @@
   // ---------------------------------------------------------------
   // 3Dmol viewer
   // ---------------------------------------------------------------
-  const viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#0b0b0f', antialias: true });
+  // 3Dmol renders at window.devicePixelRatio (2 on Retina) and bumps it further
+  // with antialias on, so a full-screen viewer pushes 4x the pixels every frame.
+  // Pin it to 1 before creating the viewer: far smoother on an M2 Air.
+  try { Object.defineProperty(window, 'devicePixelRatio', { value: 1, configurable: true }); } catch (e) {}
+  const viewer = $3Dmol.createViewer('viewer', { backgroundColor: '#0b0b0f', antialias: false });
   const STYLES = {
     bs:   { stick: { radius: 0.16 }, sphere: { scale: 0.28 } },
     sf:   { sphere: { scale: 1.0 } },
@@ -334,10 +338,14 @@
   const flash = document.getElementById('flash');
   function snapshot() {
     if (current < 0) return;
+    // render the snapshot at 2x for a crisp PNG, then drop back to 1x for speed
+    const setDpr = (v) => { try { Object.defineProperty(window, 'devicePixelRatio', { value: v, configurable: true }); } catch (e) {} };
+    setDpr(2); viewer.resize();
     viewer.setBackgroundColor(0x000000, 0);
     viewer.render();
     const uri = viewer.pngURI();
     viewer.setBackgroundColor('#0b0b0f', 1);
+    setDpr(1); viewer.resize();
     viewer.render();
     const a = document.createElement('a');
     const ts = new Date().toISOString().replace(/[-:]/g, '').replace('T', '_').slice(0, 15);
@@ -495,20 +503,32 @@
   }
 
   async function startCamera() {
+    // 1) camera first, so the PIP appears right away
     try {
-      await ensureLandmarker();
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('getUserMedia not available (needs https)');
       stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }, audio: false });
     } catch (e) {
       gName.textContent = 'Camera unavailable';
-      gHint.textContent = e && e.name === 'NotAllowedError' ? 'permission denied' : (e.message || '');
-      toast('Could not start camera. Check browser permission.');
+      gHint.textContent = e && e.name === 'NotAllowedError' ? 'permission denied in browser' : (e.message || String(e));
+      toast('Could not start camera: ' + (e.message || e.name));
       return false;
     }
     video.srcObject = stream;
     await video.play();
     overlay.width = video.videoWidth || 640; overlay.height = video.videoHeight || 480;
     pip.classList.add('show'); btnCam.classList.add('on'); btnCam.textContent = '📷 Camera on';
-    running = true; gName.textContent = 'No hand'; gHint.textContent = '';
+    running = true;
+    // 2) then the hand model (~8 MB on first visit, cached afterwards)
+    try {
+      await ensureLandmarker();
+    } catch (e) {
+      gName.textContent = 'Hand model failed';
+      gHint.textContent = e.message || String(e);
+      toast('Hand tracking failed to load: ' + (e.message || e));
+      return false;
+    }
+    if (!running) return false;
+    gName.textContent = 'No hand'; gHint.textContent = '';
     requestAnimationFrame(loop);
     return true;
   }
@@ -534,11 +554,18 @@
     }
   }
 
+  const camTag = document.getElementById('camTag');
+  let lastDetect = 0, detMs = 0;
   function loop() {
     if (!running) return;
-    if (video.readyState >= 2 && video.currentTime !== lastVideoTime) {
-      lastVideoTime = video.currentTime;
-      const r = landmarker.detectForVideo(video, performance.now());
+    const t = performance.now();
+    // detect at most ~25 times/s; the detector runs on the main thread, so
+    // calling it every rAF starves the WebGL render and makes rotation stutter
+    if (video.readyState >= 2 && video.currentTime !== lastVideoTime && t - lastDetect >= 40) {
+      lastVideoTime = video.currentTime; lastDetect = t;
+      const r = landmarker.detectForVideo(video, t);
+      detMs = 0.9 * detMs + 0.1 * (performance.now() - t);
+      camTag.textContent = 'CAMERA ' + detMs.toFixed(0) + ' ms';
       const raw = r.landmarks || [];
       drawHands(raw);
       // mirror x so left/right match what the user sees in the PIP (desktop does cv2.flip)
